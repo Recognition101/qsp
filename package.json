@@ -1,0 +1,18 @@
+{
+    "name": "cli-panel",
+    "version": "1.0.0",
+    "type": "module",
+    "scripts": {
+        "demo": "./qsp.js",
+        "lint": "npm run lint-ts",
+        "lint-ts": "npx tsc -p ./",
+        "test": "node --test './tests/*.spec.js'"
+    },
+    "devDependencies": {
+        "@types/node": "24.0.10",
+        "typescript": "5.8.3"
+    },
+    "dependencies": {
+        "github-markdown-css": "5.8.1"
+    }
+}

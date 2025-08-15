@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <script type="module" src="./index.js"></script>
+        <link href="./index.css" rel="stylesheet" />
+    </head>
+    <body>
+        <div id="dialog-backdrop"
+            class="dialog-backdrop"
+            style="display:none;">
+        </div>
+        <dialog id="output" class="output">
+            <div class="output-visible">
+                <div id="output-controls" class="output-controls">
+                    <button class="overlay-close">Close</button>
+                    <button id="output-copy" class="output-copy">
+                        Copy
+                    </button>
+                </div>
+                <div id="output-content" class="output-content code-block">
+                </div>
+            </div>
+        </dialog>
+        <dialog id="input" class="input">
+            <div class="input-visible">
+                <div id="input-inputs" class="input-inputs"></div>
+                <div id="input-controls" class="input-controls">
+                    <button class="overlay-close">Cancel</button>
+                    <button id="input-send" class="input-send">
+                        Send
+                    </button>
+                </div>
+            </div>
+        </dialog>
+        <div id="root"></div>
+        <div id="config" class="config">
+            <h2>Configuration</h2>
+
+            <div class="panel-buttons">
+                <button>
+                    <a id="config-export" href="#" download="qsp-options.json">
+                        Export
+                    </a>
+                </button>
+                <button id="import-label">
+                    <label for="config-import">Import</label>
+                </button>
+                <input
+                    type="file"
+                    id="config-import"
+                    value="Import"
+                    accept="application/json,text/javascript"
+                />
+            </div>
+        </div>
+        <div id="errors" class="errors">
+            <h2>Errors</h2>
+            <ul id="errors-list" class="errors-list">
+            </ul>
+        </div>
+    </body>
+</html>

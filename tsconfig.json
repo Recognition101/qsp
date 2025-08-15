@@ -1,0 +1,23 @@
+
+{
+    "compilerOptions": {
+        "module": "esnext",
+        "target": "ESNext",
+        "allowJs": true,
+        "checkJs": true,
+        "strict": true,
+        "noEmit": true,
+        "downlevelIteration": true,
+        "maxNodeModuleJsDepth": 5,
+        "moduleResolution": "node",
+        "lib": [ "esnext", "dom" ]
+    },
+    "files": [
+        "qsp.js",
+        "qsp-config.js",
+        "index.js",
+        "panel-config.js",
+        "tests/lookup.spec.js",
+        "tests/type-verifier.spec.js"
+    ]
+}
