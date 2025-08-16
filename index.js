@@ -235,6 +235,7 @@ const runButton = async (app, domButton, button, signal, isRepeat) => {
     // Make HTTP request, handle response
     /** @type {RequestInit} */
     const fetchOptions = {
+        mode: !showOutput ? 'no-cors' : undefined,
         cache: 'no-cache',
         method: request.method,
         headers: request.headers,
