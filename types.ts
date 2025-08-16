@@ -95,6 +95,8 @@ export type QspServerConfigCommand = {
     name: string;
     /** A list of arguments the user can edit. */
     arguments?: ArgumentSchema[];
+    /** The current working directory for this command. */
+    cwd?: string;
     /**
      * The command bin name to run followed by arguments to pass to it.
      * Any child-arrays will be concatenated. For example:
@@ -213,6 +215,7 @@ export type ErrorResponse = {
 export type ResponderContext = {
     config: QspServerConfig;
     mdCss: string;
+    local: string | null;
 };
 
 export type FileNameMetadata = {

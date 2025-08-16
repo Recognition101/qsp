@@ -95,7 +95,9 @@ const readStorage = () => {
 const downloadCommands = async (app, commandUrl) => {
     const url = addToken(commandUrl, '?', 'do=getCommands')
 
-    const response = await fetch(url).catch(e => {
+    /** @type {RequestInit} */
+    const fetchOptions = { cache: 'no-cache', mode: 'no-cors' };
+    const response = await fetch(url, fetchOptions).catch(e => {
         const msg = `Command URL \`${url}\` could not be requested.`;
         app.showErrorModal(msg, e);
         return null;
@@ -231,8 +233,15 @@ const runButton = async (app, domButton, button, signal, isRepeat) => {
     }
     
     // Make HTTP request, handle response
-    const { url, method, headers, body } = request;
-    const response = await fetch(url, { method, headers, body })
+    /** @type {RequestInit} */
+    const fetchOptions = {
+        cache: 'no-cache',
+        mode: 'no-cors',
+        method: request.method,
+        headers: request.headers,
+        body: request.body
+    };
+    const response = await fetch(request.url, fetchOptions)
         .then(x => x.text())
         .catch(e => { app.onError(e); return null; });
     if (response && command && commandUrl) {
@@ -379,10 +388,12 @@ const makeError = (info) => {
  */
 const renderProcess = app => {
     const domOutput = h('div', { className: 'process-out' });
+    const domError = h('div', { className: 'process-error' });
 
     const domMain = h('div', [
         { className: 'process is-loading' },
         domOutput,
+        domError,
         h('div', [{ className: 'indicator-loading' }, 'PROCESS RUNNING']),
         h('div', [{ className: 'indicator-error' }, 'Error!'])
     ]);
@@ -399,6 +410,7 @@ const renderProcess = app => {
             const taskJson = await (await fetch(pidUrl)).json();
             const task = isTask({ value: taskJson });
             domOutput.innerText = task.results.out;
+            domError.innerText = task.results.error;
             const isDone = typeof task.results.timeEnd === 'number';
             domMain.classList.toggle('is-loading', !isDone);
 
@@ -734,3 +746,7 @@ const main = async () => {
 };
 
 main().catch(e => { throw e; });
+
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./cache-worker.js', { scope: './' });
+}

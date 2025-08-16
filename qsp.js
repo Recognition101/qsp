@@ -5,6 +5,7 @@ import { promises as fs } from 'node:fs';
 import * as fsRoot from 'node:fs';
 import * as ncp from 'node:child_process';
 import * as http from 'node:http';
+import * as https from 'node:https';
 import * as path from 'node:path';
 
 /**
@@ -61,6 +62,9 @@ OPTIONS:
     -h, --help          show this message and exit
     -c, --config        path to a configuration file
     -m, --markdown      path to a CSS file to prepend to rendered markdown
+    -k, --key           (optional) path to an HTTPS key file
+    -e, --cert          (optional) path to an HTTPS certificate file
+    -l, --local         (optional) folder name to mount binary-peer files at
     -p, --port [NUMBER] run on this port (default: ${port})
 `;
 
@@ -383,6 +387,7 @@ const respond = (res, text, fileType, code = 200, headers = {}) => {
     res.writeHead(code, {
         'Accept-Ranges': 'bytes',
         'Access-Control-Allow-Origin': '*',
+        'Access-Control-Request-Private-Network': 'true',
         'Content-Length': Buffer.byteLength(text, 'utf8'),
         'Content-Type': mimeTypes[fileType ?? '.html'] || mimeTypes['.html'],
         ...headers
@@ -567,6 +572,7 @@ const isQspServerConfigSlot = c => ({ key: isString (isIn(c, 'key')) });
 const isQspServerConfigCommand = c => ({
     name: isString (isIn(c, 'name')),
     arguments: isMaybe(isArrayOf(isArgumentSchema)) (isIn(c, 'arguments')),
+    cwd: isMaybe(isString) (isIn(c, 'cwd')),
     runner: isArrayOf(isMaybeArray(isOneOf(isString, isQspServerConfigSlot)))
         (isIn(c, 'runner'))
 });
@@ -751,6 +757,7 @@ export const getIndexHtml = async (pathRoot, pathUrl) => {
  * @param {http.ServerResponse} res the response object
  */
 const requestListener = async (context, req, res) => {
+    const { config, mdCss, local } = context;
     const range = req.headers.range;
     const url = req.url ?? '';
     const urlResult = doTry(() => new URL(`https://localhost${url}`));
@@ -758,10 +765,12 @@ const requestListener = async (context, req, res) => {
     const render = urlParsed?.searchParams.get('render') ?? null;
     const directive = urlParsed?.searchParams.get('do') ?? null;
     const urlPath = path.resolve('/', decodeURI(urlParsed?.pathname ?? ''));
-    const filePath = path.join(process.cwd(), urlPath);
+    const isLocal = local && urlPath.startsWith(`/${local}`);
+    const filePath = isLocal
+        ? path.join(import.meta.dirname, urlPath.substring(1 + local.length))
+        : path.join(process.cwd(), urlPath);
     const fileMime = mimeTypes[path.extname(filePath)] || 'text/plain';
     const stat = !directive ? await getMaybeStats(filePath) : null;
-    const config = context.config;
 
     // CLI Runner
     if (req.method === 'POST' && directive === 'run') {
@@ -807,7 +816,8 @@ const requestListener = async (context, req, res) => {
         tasks.set(pid, info);
         removeOldTasks();
 
-        const runResult = run(cliName, cliArgs, null, null, results);
+        const options = command.cwd ? { cwd: command.cwd } : null;
+        const runResult = run(cliName, cliArgs, options, null, results);
         if (!isPersisted) {
             await runResult;
         }
@@ -857,8 +867,15 @@ const requestListener = async (context, req, res) => {
         }
 
         try {
-            const { url, method, headers, body } = proxy;
-            const response = await fetch(url, { method, headers, body });
+            /** @type {RequestInit} */
+            const fetchOptions = {
+                cache: 'no-cache',
+                mode: 'no-cors',
+                method: proxy.method,
+                headers: proxy.headers,
+                body: proxy.body
+            };
+            const response = await fetch(proxy.url, fetchOptions);
             const text = await response.text();
             const responseHeaders = /** @type {Object<string, string>} */({});
             response.headers.forEach((value, key) => {
@@ -886,8 +903,8 @@ const requestListener = async (context, req, res) => {
         const out = (await run('marked', ['-i', filePath]))?.out;
         const isSuccess = typeof out === 'string';
         const body = isSuccess
-            ? getMarkdownHtml(out, context.mdCss)
-            : getMarkdown500Html(context.mdCss);
+            ? getMarkdownHtml(out, mdCss)
+            : getMarkdown500Html(mdCss);
         respond(res, body, null, isSuccess ? 200 : 500);
         
 
@@ -937,11 +954,30 @@ const main = async () => {
 
     const argPort = parseInt(string(args.p || args.port) ?? '', 10) || port;
     const argConfig = string(args.c || args.config);
+    const argKey = string(args.k || args.key);
+    const argCert = string(args.e || args.cert);
     const argMd = string(args.m || args.markdown);
+    const argLocal = string(args.l || args.local);
     if (args.h || args.help) {
         console.log(help);
         return;
     }
+
+    const keyFile = argKey ? fs.readFile(argKey) : null;
+    const key = await keyFile
+        ?.then(x => x.toString())
+        ?.catch(_e => {
+            console.error(`Could not read HTTPS key at: ${argKey}`);
+            return null;
+        });
+
+    const certFile = argCert ? fs.readFile(argCert) : null;
+    const cert = await certFile
+        ?.then(x => x.toString())
+        ?.catch(_e => {
+            console.error(`Could not read HTTPS cert at: ${argKey}`);
+            return null;
+        });
 
     const mdCss = await fs.readFile(argMd ?? pathNpmMdCss)
         .then(x => x.toString())
@@ -949,13 +985,25 @@ const main = async () => {
             ? '/* Error: `-m` markdown CSS file could not be read. */'
             : '/* Use `-m` to provide rendered markdown CSS. */'
         );
-    const config = argConfig ? await readConfig(argConfig) : { };
 
-    const server = http.createServer(
-        requestListener.bind(null, { config, mdCss })
-    );
-    server.listen(argPort);
-    console.log(`Server Running: localhost:${argPort}`);
+    const listener = requestListener.bind(null, {
+        mdCss,
+        config: argConfig ? await readConfig(argConfig) : { },
+        local: argLocal
+    });
+
+    if (cert && key) {
+        const server = https.createServer({
+            key: await fs.readFile(path.join(import.meta.dirname, 'server.key')),
+            cert: await fs.readFile(path.join(import.meta.dirname, 'server.cert'))
+        }, listener);
+        server.listen(argPort);
+        console.log(`Server Running: https://localhost:${argPort}`);
+    } else {
+        const server = http.createServer(listener);
+        server.listen(argPort);
+        console.log(`Server Running: http://localhost:${argPort}`);
+    }
 };
 
 main();

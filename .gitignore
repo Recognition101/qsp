@@ -10,6 +10,8 @@ qsp-config.js
 qsp-markdown.css
 panel-config.json
 panel-config.js
+server.key
+server.cert
 
 # Editor specific project files
 .tern-project

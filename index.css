@@ -393,11 +393,15 @@ body:has(dialog[open]) .dialog-backdrop {
 
 /* ## Process Output Window */
 
-.process .process-out {
+.process .process-out,
+.process .process-error {
     padding: 1rem;
     font-family: ui-monospace, monospace;
     white-space: pre;
     word-wrap: nowrap;
+}
+.process .process-error {
+    color: var(--color-red);
 }
 .process .indicator-loading,
 .process .indicator-error {

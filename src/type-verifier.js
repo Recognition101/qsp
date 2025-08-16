@@ -223,6 +223,7 @@ export const isQspServerConfigSlot = c => ({ key: isString (isIn(c, 'key')) });
 export const isQspServerConfigCommand = c => ({
     name: isString (isIn(c, 'name')),
     arguments: isMaybe(isArrayOf(isArgumentSchema)) (isIn(c, 'arguments')),
+    cwd: isMaybe(isString) (isIn(c, 'cwd')),
     runner: isArrayOf(isMaybeArray(isOneOf(isString, isQspServerConfigSlot)))
         (isIn(c, 'runner'))
 });
