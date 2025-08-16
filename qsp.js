@@ -587,8 +587,7 @@ const isHttpCallRequest = c => ({
     method: isString(isIn(c, 'method')),
     url: isString(isIn(c, 'url')),
     headers: isMaybe(isObjectMap(isString))(isIn(c, 'headers')),
-    body: isMaybe(isString)(isIn(c, 'body')),
-    mode: isMaybe(isString)(isIn(c, 'mode'))
+    body: isMaybe(isString)(isIn(c, 'body'))
 });
 
 //

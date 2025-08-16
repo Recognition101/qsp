@@ -55,9 +55,6 @@ const headers = Object.freeze(/** @type {const} */([
     'h1', 'h2', 'h3', 'h4', 'h5', 'h6'
 ]));
 const jsToJson = /^\s*\/\*\*.*\*\/\s*export [^=]*=\s*/m;
-const fetchModes = Object.freeze(/** @type {const} */([
-    "cors", "navigate", "no-cors", "same-origin"
-]));
 
 //
 //
@@ -209,7 +206,6 @@ const runButton = async (app, domButton, button, signal, isRepeat) => {
         method: sub(inRequest.method),
         url: sub(inRequest.url),
         body: inRequest.body ? sub(inRequest.body) : undefined,
-        mode: inRequest.mode ? sub(inRequest.mode) : undefined,
         headers: inHeaders.reduce((map, [key, value]) => {
             map[sub(key)] = sub(value);
             return map;
@@ -239,9 +235,6 @@ const runButton = async (app, domButton, button, signal, isRepeat) => {
     // Make HTTP request, handle response
     /** @type {RequestInit} */
     const fetchOptions = {
-        mode: request.mode
-            ? fetchModes.find(x => x === request.mode)
-            : undefined,
         cache: 'no-cache',
         method: request.method,
         headers: request.headers,
