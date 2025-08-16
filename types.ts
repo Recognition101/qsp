@@ -77,6 +77,8 @@ export type HttpCallRequest = {
     headers?: { [key: string]: string };
     /** The HTTP body to use (ex: for a 'POST' request). */
     body?: string;
+    /** The fetch mode to use to make the call (ex: 'no-cors'). */
+    mode?: string;
 };
 
 //
