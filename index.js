@@ -96,7 +96,7 @@ const downloadCommands = async (app, commandUrl) => {
     const url = addToken(commandUrl, '?', 'do=getCommands')
 
     /** @type {RequestInit} */
-    const fetchOptions = { cache: 'no-cache', mode: 'no-cors' };
+    const fetchOptions = { cache: 'no-cache' };
     const response = await fetch(url, fetchOptions).catch(e => {
         const msg = `Command URL \`${url}\` could not be requested.`;
         app.showErrorModal(msg, e);
@@ -236,7 +236,6 @@ const runButton = async (app, domButton, button, signal, isRepeat) => {
     /** @type {RequestInit} */
     const fetchOptions = {
         cache: 'no-cache',
-        mode: 'no-cors',
         method: request.method,
         headers: request.headers,
         body: request.body

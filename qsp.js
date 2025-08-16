@@ -870,7 +870,6 @@ const requestListener = async (context, req, res) => {
             /** @type {RequestInit} */
             const fetchOptions = {
                 cache: 'no-cache',
-                mode: 'no-cors',
                 method: proxy.method,
                 headers: proxy.headers,
                 body: proxy.body
