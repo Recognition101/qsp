@@ -331,11 +331,7 @@ The `qsp.js` file configuration is a [`QspServerConfig`](./types.ts) object. It 
 
 Each command consists of a name (for reference by Panel UI buttons' `command` property), a list of arguments (identical in structure to Panel UI button `arguments`), and a `runner` which describes the CLI binary to run (and its arguments).
 
-The `runner` is a list starting with the binary name (ex: `"ls"`). Each following item represents a single argument that the binary is called with. Each of those items can be:
-
-1. A string
-2. An object with a `key` property. Each is replaced by the value of the argument with the corresponding `key`.
-3. An array filled with strings and `key` objects. These are concatenated together to form an argument value.
+The `runner` is a list of strings. The first represents the binary name (ex: `"ls"`), and all following strings represent arguments passed to that binary. Each string can contain substitutions with a similar replacement syntax as the Panel UI - for example, `${replace}` is replaced with the value of the argument whose key is `replace`.
 
 
 ## Full CLI Command Example
@@ -353,7 +349,7 @@ export const config = {
                 info: 'The kind of output to provide',
                 values: ['l', 'lah']
             }],
-            runner: ['ls', ['-', { key: 'type' }]]
+            runner: ['ls', '-${type}']
         },
         {
             name: 'ping-command',
@@ -361,7 +357,7 @@ export const config = {
                 key: 'host',
                 info: 'The host to ping.'
             }],
-            runner: ['ping', { key: 'host' }, '-c', '10']
+            runner: ['ping', '${host}', '-c', '10']
         }
     ]
 };

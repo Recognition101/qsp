@@ -99,22 +99,14 @@ export type QspServerConfigCommand = {
     cwd?: string;
     /**
      * The command bin name to run followed by arguments to pass to it.
-     * Any child-arrays will be concatenated. For example:
-     * - `['ls', ['-', 'l', 'a']]` runs `ls -la`.
-     * Any element that is an `ConfigArgumentKey` is replaced by the value
-     * of the argument from `arguments` above. For example:
-     * - `['ls', ['-', { key: 'K1' }], { key: 'K2' }]` runs: `ls -l -ah`...
-     * - Given that arguments is `{ K1: 'l', K2: '-ah' }`
+     * Arguments (and the command name) can contain argument references which
+     * will be replaced by the argument's value. For Example:
+     * - Given Aruments: `{ "a": "-l", "b": "a" }`
+     * - Runner: ["ls", "${a}", "-${b}h"]
+     * Will run: `ls -l -ah` (note the second argument's concatenation).
      */
-    runner: (
-        | string
-        | QspServerConfigSlot
-        | (string | QspServerConfigSlot)[]
-    )[];
+    runner: string[];
 };
-
-/** A slot to be filled by an argument's value (specified by key name). */
-export type QspServerConfigSlot = { key: string };
 
 //
 //

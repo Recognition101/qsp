@@ -17,7 +17,6 @@ import * as path from 'node:path';
  * @typedef {import('./types').HttpCallRequest} HttpCallRequest
  * @typedef {import('./types').QspServerConfig} QspServerConfig
  * @typedef {import('./types').QspServerConfigCommand} QspServerConfigCommand
- * @typedef {import('./types').QspServerConfigSlot} QspServerConfigSlot
  * @typedef {import('./types').CommandRequest} CommandRequest
  * @typedef {import('./types').CommandSchema} CommandSchema
  * @typedef {import('./types').ArgumentSchema} ArgumentSchema
@@ -197,21 +196,6 @@ const parseArgs = () => {
 };
 
 /**
- * Gets the file contents of the first existing path from a list.
- * @param {string[]} filePaths the list of paths to try (in order)
- * @return {Promise<string|null>} the first `filePath` that exists
- */
-const getFirstFile = async (filePaths) => {
-    for(const filePath of filePaths) {
-        const file = await fs.stat(filePath).catch(_e => null);
-        if (file?.isFile()) {
-            return filePath;
-        }
-    }
-    return null;
-};
-
-/**
  * Reads the configuration file, either from JS or JSON.
  * @param {string} pathConfig the path to the configuration file
  * @return {Promise<QspServerConfig>} the configuration object
@@ -348,15 +332,20 @@ const removeOldTasks = () => {
 };
 
 /**
- * Expands an argument fragment into text.
- * @param {MaybeArray<string | QspServerConfigSlot>} text a slot to expand
- * @param {JsonObject} args the arguments to use to expand
+ * Expands a command fragment into text.
+ * @param {string} text a binary/argument to expand
+ * @param {{[key: string]: string}} args the arguments to use to expand
  * @return {string} the expanded text
  */
-const expandArgument = (text, args) =>
-    Array.isArray(text) ? text.map(x => expandArgument(x, args)).join('') :
-    typeof text === 'string' ? text :
-    (string(args[text.key]) ?? '');
+const expandArgument = (text, args) => {
+    const getTokens = /\$(\\+)?\{((?:(\w+):)?(\w+))\}/g;
+    return text.replaceAll(getTokens, (match, slash, mBody, _mFn, mKey) => {
+        if (typeof slash === 'string' && slash.length > 0) {
+            return `$${slash.substring(1)}{${string(mBody) ?? ''}}`;
+        }
+        return args[string(mKey) ?? ''] ?? string(match) ?? '';
+    });
+};
 
 /**
  * Gathers metadat from a filename. See `FileNameMetadta` for more docs.
@@ -543,14 +532,6 @@ const isOneOf = (...list) => c => {
  */
 const isMaybe = fn => isOneOf(fn, isUndefined);
 
-/**
- * Creates a checker for something that is either T or T[].
- * @template T the type of item to check
- * @param {IsA<T>} fn the item checker
- * @return {IsA<T | T[]>} the maybe array checker
- */
-const isMaybeArray = fn => isOneOf(isArrayOf(fn), fn);
-
 /** @type {IsA<ArgumentSchema>} */
 const isArgumentSchema = c => ({
     key: isString (isIn(c, 'key')),
@@ -565,16 +546,12 @@ const isCommandRequest = c => ({
     isPersisted: isMaybe(isBoolean) (isIn(c, 'isPersisted')),
 });
 
-/** @type {IsA<QspServerConfigSlot>} */
-const isQspServerConfigSlot = c => ({ key: isString (isIn(c, 'key')) });
-
 /** @type {IsA<QspServerConfigCommand>} */
 const isQspServerConfigCommand = c => ({
     name: isString (isIn(c, 'name')),
     arguments: isMaybe(isArrayOf(isArgumentSchema)) (isIn(c, 'arguments')),
     cwd: isMaybe(isString) (isIn(c, 'cwd')),
-    runner: isArrayOf(isMaybeArray(isOneOf(isString, isQspServerConfigSlot)))
-        (isIn(c, 'runner'))
+    runner: isArrayOf(isString) (isIn(c, 'runner'))
 });
 
 /** @type {IsA<QspServerConfig>} */

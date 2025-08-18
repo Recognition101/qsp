@@ -5,7 +5,6 @@
  * @typedef {import('../types').HttpCallRequest} HttpCallRequest
  * @typedef {import('../types').QspServerConfig} QspServerConfig
  * @typedef {import('../types').QspServerConfigCommand} QspServerConfigCommand
- * @typedef {import('../types').QspServerConfigSlot} QspServerConfigSlot
  * @typedef {import('../types').CommandRequest} CommandRequest
  * @typedef {import('../types').CommandSchema} CommandSchema
  * @typedef {import('../types').ArgumentSchema} ArgumentSchema
@@ -216,16 +215,12 @@ export const isCommandRequest = c => ({
     isPersisted: isMaybe(isBoolean) (isIn(c, 'isPersisted')),
 });
 
-/** @type {IsA<QspServerConfigSlot>} */
-export const isQspServerConfigSlot = c => ({ key: isString (isIn(c, 'key')) });
-
 /** @type {IsA<QspServerConfigCommand>} */
 export const isQspServerConfigCommand = c => ({
     name: isString (isIn(c, 'name')),
     arguments: isMaybe(isArrayOf(isArgumentSchema)) (isIn(c, 'arguments')),
     cwd: isMaybe(isString) (isIn(c, 'cwd')),
-    runner: isArrayOf(isMaybeArray(isOneOf(isString, isQspServerConfigSlot)))
-        (isIn(c, 'runner'))
+    runner: isArrayOf(isString) (isIn(c, 'runner'))
 });
 
 /** @type {IsA<QspServerConfig>} */
