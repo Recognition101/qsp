@@ -363,16 +363,11 @@ export const config = {
 };
 ```
 
-Then run the reference server with:
+Additionally, create a `panel-config.js` with the following contents:
 
-```bash
-./qsp.js -c ./qsp-config.js -p 1234
-```
-
-Next, open the Panel UI and import the following configuration:
-
-```json
-{
+```js
+/** @type {import('./types').PanelConfig} */
+export const config = {
     "root": {
         "title": "Main Panel",
         "buttons": [
@@ -391,6 +386,16 @@ Next, open the Panel UI and import the following configuration:
     }
 }
 ```
+
+Then, run the reference server with:
+
+```bash
+./qsp.js -c ./qsp-config.js -p 1234 -l _LOCAL
+```
+
+Next, open the Panel UI here: [http://localhost:1234/_LOCAL/index.html](http://localhost:1234/_LOCAL/index.html)
+
+In that UI, use <kbd>Import</kbd> to import the `panel-config.js` you created above.
 
 This creates two buttons, one of which runs `ls` and one which runs `ping`. Notice:
 
