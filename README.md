@@ -175,8 +175,8 @@ Additionally, a `setList` property allows substitution of numeric keys. The foll
 
 Finally, transform functions can be used by prefixing the key with a function name. There are two functions:
 
-1. `urlencode` - Use `encodeURIComponent` to encode the text.
-2. `jsonString` - Use `JSON.stringify` to encode the text.
+1. `${urlencode:x}` - Use `encodeURIComponent` to encode the text in `x`.
+2. `${jsonString:x}` - Use `JSON.stringify` to encode the text in `x`.
 
 For example, the following button makes a request to `http://192.168.1.64:1234/README.md?a=%7B%22key%22%3A%22a%5C%22b%22%7D`:
 
@@ -331,7 +331,9 @@ The `qsp.js` file configuration is a [`QspServerConfig`](./types.ts) object. It 
 
 Each command consists of a name (for reference by Panel UI buttons' `command` property), a list of arguments (identical in structure to Panel UI button `arguments`), and a `runner` which describes the CLI binary to run (and its arguments).
 
-The `runner` is a list of strings. The first represents the binary name (ex: `"ls"`), and all following strings represent arguments passed to that binary. Each string can contain substitutions with a similar replacement syntax as the Panel UI - for example, `${replace}` is replaced with the value of the argument whose key is `replace`.
+The `runner` is a list of strings. The first represents the binary name (ex: `"ls"`), and all following strings represent arguments passed to that binary. Each string can contain substitutions with a similar replacement syntax as the Panel UI - for example, `${replace}` is replaced with the value of the argument whose key is `replace`. It supports a different set of string transform functions:
+
+1. `${relativePath:x}` - assumes `x` is a path or URL, and converts it to a path that must be within the current working directory.
 
 
 ## Full CLI Command Example

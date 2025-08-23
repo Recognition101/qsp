@@ -339,11 +339,18 @@ const removeOldTasks = () => {
  */
 const expandArgument = (text, args) => {
     const getTokens = /\$(\\+)?\{((?:(\w+):)?(\w+))\}/g;
-    return text.replaceAll(getTokens, (match, slash, mBody, _mFn, mKey) => {
+    return text.replaceAll(getTokens, (match, slash, mBody, mFn, mKey) => {
         if (typeof slash === 'string' && slash.length > 0) {
             return `$${slash.substring(1)}{${string(mBody) ?? ''}}`;
         }
-        return args[string(mKey) ?? ''] ?? string(match) ?? '';
+        const value = args[string(mKey) ?? ''] ?? string(match) ?? '';
+        if (mFn === 'relativePath') {
+            const absolutePath = /^https?:\/\//.test(value)
+                ? decodeURI(value.replace(/^[^/]*\/\/[^/]*\/|[?#].*$/g, ''))
+                : value;
+            return path.join(process.cwd(), path.resolve('/', absolutePath));
+        }
+        return value;
     });
 };
 
@@ -793,7 +800,8 @@ const requestListener = async (context, req, res) => {
         tasks.set(pid, info);
         removeOldTasks();
 
-        const options = command.cwd ? { cwd: command.cwd } : null;
+        const cwd = command.cwd ? expandArgument(command.cwd, args) : null;
+        const options = cwd ? { cwd } : null;
         const runResult = run(cliName, cliArgs, options, null, results);
         if (!isPersisted) {
             await runResult;
