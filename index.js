@@ -168,6 +168,40 @@ const addToken = (url, delimiter, key, value = null) =>
     `${url}${url.includes(delimiter) ? '&' : delimiter}` +
     (value !== null ? `${key}=${encodeURIComponent(value)}` : key);
 
+
+/**
+ * Begin the process of loading all command metadata from all command URLs.
+ * @param {ClientApp} app the application orchestration global
+ * @param {Panel} [panel] the panel (if not root) to load command URLs from
+ */
+const refreshCommandUrls = (app, panel) => {
+    if (!panel) {
+        app.commandUrls.clear();
+    }
+
+    const target = panel ?? app.config.root;
+    for (const button of target.buttons ?? []) {
+        const commandUrl = lookup(app, button, 'commandUrl');
+        if (commandUrl) {
+            app.commandUrls.add(commandUrl);
+        }
+        if (commandUrl && !app.commandMap.has(commandUrl)) {
+            const url = addToken(commandUrl, '?', 'do=getCommands');
+            /** @type {ClientCommandSet} */
+            const commandSet = {
+                loader: callCommandApi(app, url, isArrayOf(isCommandSchema)),
+                commands: null
+            };
+            commandSet.loader.then(x => { commandSet.commands = x; });
+            app.commandMap.set(commandUrl, commandSet);
+        }
+    }
+
+    for(const child of target.children ?? []) {
+        refreshCommandUrls(app, child);
+    }
+};
+
 /**
  * Begins the process of refreshing the tasks.
  * @param {ClientApp} app the application orchestration global
@@ -503,8 +537,8 @@ const renderButton = (app, button, isUpdate) => {
             button.text
         ]);
 
-    if (!isUpdate) {
-        app.commandMap.get(commandUrl ?? '')?.loader?.then(commands => {
+    if (!isUpdate && commandUrl) {
+        app.commandMap.get(commandUrl)?.loader?.then(commands => {
             const command = commands?.find(x => x.name === commandName);
             if (command) {
                 button.arguments = command.arguments;
@@ -527,29 +561,9 @@ const renderButton = (app, button, isUpdate) => {
  */
 const renderPanel = (app, panel, level = 1) => {
     const header = headers[clamp(level - 1, 0, headers.length - 1)];
-    const buttons = panel.buttons ?? [];
-
-    for(const button of buttons) {
-        const commandUrl = lookup(app, button, 'commandUrl');
-        if (commandUrl) {
-            app.commandUrls.add(commandUrl);
-        }
-        if (commandUrl && !app.commandMap.has(commandUrl)) {
-            const url = addToken(commandUrl, '?', 'do=getCommands');
-            /** @type {ClientCommandSet} */
-            const commandSet = {
-                loader: callCommandApi(app, url, isArrayOf(isCommandSchema)),
-                commands: null
-            };
-            commandSet.loader.then(x => { commandSet.commands = x; });
-            app.commandMap.set(commandUrl, commandSet);
-        }
-    }
-
-    const domButtons = buttons.map(button => renderButton(app, button));
-
-    const domChildren = (panel.children ?? [])
-        .map(child => renderPanel(app, child, level + 1));
+    const children = panel.children ?? [];
+    const domButtons = (panel.buttons ?? []).map(x => renderButton(app, x));
+    const domChildren = children.map(x => renderPanel(app, x, level + 1));
     
     return h('div', [
         { className: 'panel' },
@@ -786,13 +800,13 @@ const main = async () => {
         app.input = null;
         clearDom(domInputs);
         clearDom(domRoot);
-        app.commandUrls.clear();
 
         if (app.pidUrl) {
             domRoot.appendChild(renderProcess(app));
         } else {
-            domRoot.appendChild(renderPanel(app, app.config.root));
+            refreshCommandUrls(app);
             refreshTasks(app);
+            domRoot.appendChild(renderPanel(app, app.config.root));
         }
     };
 
