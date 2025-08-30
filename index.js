@@ -10,6 +10,7 @@ import {
     select,
     cast,
     clamp,
+    join,
     wait,
     doTry
 } from './src/lib.js';
@@ -19,6 +20,7 @@ import {
  * @typedef {import('./types').JsonObject} JsonObject
  * @typedef {import('./types').ClientApp} ClientApp
  * @typedef {import('./types').ClientCommandSet} ClientCommandSet
+ * @typedef {import('./types').ClientTaskList} ClientTaskList
  * @typedef {import('./types').EventLike} EventLike
  *
  * @typedef {import('./types').PanelConfig} PanelConfig
@@ -87,43 +89,57 @@ const readStorage = () => {
 };
 
 /**
- * Downloads commands for a particular command URL (if needed).
- * @param {ClientApp} app the app to download commands for
- * @param {string} commandUrl the URL to download from
- * @return {Promise<CommandSchema[]|null>}
+ * Gets the URL for a page showing a particular task's output.
+ * @param {string} commandUrl the URL of the command server containing `pid`
+ * @param {string} pid the process ID of the task to display
+ * @return {string} the URL for a viewer page that views the given task
  */
-const downloadCommands = async (app, commandUrl) => {
-    const url = addToken(commandUrl, '?', 'do=getCommands')
+const getPidViewerUrl = (commandUrl, pid) => {
+    const pidUrl = addToken(commandUrl, '?', 'do=getTaskInfo&pid', pid);
 
+    const url = new URL(window.location.href);
+    url.searchParams.append('pid', pid);
+    url.hash = `pidUrl=${encodeURIComponent(pidUrl)}`;
+    return url.toString();
+};
+
+/**
+ * Fetch the results of a QSP Command Protocol API call.
+ * @template T the type of the API response
+ * @param {ClientApp} app the app to notify upon failure
+ * @param {string} apiUrl the API URL to the server whose API this calls
+ * @param {IsA<T>} cast the function that casts data into the response type
+ * @return {Promise<T|null>} the API response, if successful
+ */
+const callCommandApi = async (app, apiUrl, cast) => {
+    const urlName = `Command URL \`${apiUrl}\``;
+    let message = /** @type {string|null} */(null);
+    let error = /** @type {unknown} */(null);
+    
     /** @type {RequestInit} */
     const fetchOptions = { cache: 'no-cache' };
-    const response = await fetch(url, fetchOptions).catch(e => {
-        const msg = `Command URL \`${url}\` could not be requested.`;
-        app.showErrorModal(msg, e);
+    const response = await fetch(apiUrl, fetchOptions).catch(e => {
+        message = `${urlName} could not be requested.`;
+        error = e;
         return null;
     });
-    if (!response) {
-        return null;
-    }
 
-    const json = await response.json().catch(e => {
-        const msg = `Command URL \`${url}\` did not return JSON.`;
-        app.showErrorModal(msg, e);
+    const json = await response?.json().catch(e => {
+        message = `${urlName} did not return JSON.`;
+        error = e;
         return null;
     });
-    if (!json) {
-        return null;
+
+    const result = message ? null : doTry(() => cast({ value: json }));
+    if (result && (result.error || !result.value)) {
+        message = `${urlName} responded with an incorrectly typed structure.`;
+        error = result.error;
     }
 
-    const commands = doTry(() => isArrayOf(isCommandSchema)({ value: json }));
-    if (commands.error || !commands.value) {
-        const msg = `Command URL \`${url}\` result data is not correctly` +
-            ` structured/typed.`;
-        app.showErrorModal(msg, commands.error);
-        return null;
+    if (message) {
+        app.showErrorModal(message, error);
     }
-
-    return commands.value;
+    return result?.value ?? null;
 };
 
 /**
@@ -151,6 +167,28 @@ const getCommand = (app, button) => {
 const addToken = (url, delimiter, key, value = null) =>
     `${url}${url.includes(delimiter) ? '&' : delimiter}` +
     (value !== null ? `${key}=${encodeURIComponent(value)}` : key);
+
+/**
+ * Begins the process of refreshing the tasks.
+ * @param {ClientApp} app the application orchestration global
+ */
+const refreshTasks = (app) => {
+    app.tasks.clear();
+    for(const commandUrl of app.commandUrls) {
+        const url = addToken(commandUrl, '?', 'do=getTasks');
+        /** @type {ClientTaskList} */
+        const taskList = {
+            url: commandUrl,
+            loader: callCommandApi(app, url, isArrayOf(isTask)),
+            tasks: null
+        };
+        taskList.loader.then(x => {
+            taskList.tasks = x;
+            app.updateTaskList();
+        });
+        app.tasks.set(commandUrl, taskList);
+    }
+};
 
 //
 //
@@ -248,6 +286,7 @@ const runButton = async (app, domButton, button, signal, isRepeat) => {
         const { value: task, error } = doTry(() =>
             isTask({ value: JSON.parse(response) })
         );
+        refreshTasks(app);
         if (!task) {
             app.showErrorModal('Response was not a `Task`.', error);
         } else if (isPersisted) {
@@ -492,12 +531,16 @@ const renderPanel = (app, panel, level = 1) => {
 
     for(const button of buttons) {
         const commandUrl = lookup(app, button, 'commandUrl');
+        if (commandUrl) {
+            app.commandUrls.add(commandUrl);
+        }
         if (commandUrl && !app.commandMap.has(commandUrl)) {
+            const url = addToken(commandUrl, '?', 'do=getCommands');
             /** @type {ClientCommandSet} */
             const commandSet = {
-                loader: downloadCommands(app, commandUrl),
+                loader: callCommandApi(app, url, isArrayOf(isCommandSchema)),
                 commands: null
-            }
+            };
             commandSet.loader.then(x => { commandSet.commands = x; });
             app.commandMap.set(commandUrl, commandSet);
         }
@@ -574,6 +617,62 @@ const renderInput = (app, button) => {
     return h('ul', inputs);
 };
 
+/**
+ * Renders the current list of active/completed tasks.
+ * @param {ClientApp} app the application orchestration global
+ * @return {HTMLLIElement[]} the list of tasks
+ */
+const renderTasks = (app) => {
+    const tasks = app.tasks.values()
+        .flatMap(x => x.tasks?.map(t => ({ url: x.url, ...t })) ?? [])
+        .toArray()
+        .sort((a, b) => b.results.timeStart - a.results.timeStart);
+
+    return tasks.map(task => {
+        const args = Object.entries(task.request.arguments);
+        const { timeStart, timeEnd } = task.results;
+        const start = (new Date(timeStart)).toLocaleString();
+        const end = timeEnd
+            ? (new Date(timeEnd)).toLocaleString()
+            : '';
+        const startWords = start.split(' ');
+        const endWords = end.split(' ');
+        const endTrimIndex = endWords.findIndex((word, i) =>
+            i >= startWords.length || word !== startWords[i]
+        );
+        const endTrimmed = endTrimIndex >= 0
+            ? endWords.slice(endTrimIndex).join(' ')
+            : '';
+
+        return h('li', [
+            { className: 'task' },
+            h('a', [
+                {
+                    className: 'task-name',
+                    href: getPidViewerUrl(task.url, task.pid),
+                    target: '_blank'
+                },
+                task.request.name
+            ]),
+            h('span', [
+                { className: 'task-time'},
+                `${start}${join(' - ', endTrimmed || null)}`
+            ]),
+            h('details', [
+                h('summary', ' ? '),
+                h('ol', args.map(([k, v]) =>
+                    h('li', [
+                        { className: 'task-arg' },
+                        h('span', [{ className: 'task-key' }, k]),
+                        ' = ',
+                        h('span', [{ className: 'task-value' }, v])
+                    ])
+                ))
+            ])
+        ]);
+    });
+};
+
 //
 //
 // ## Main Function
@@ -581,6 +680,7 @@ const renderInput = (app, button) => {
 const main = async () => {
     const domImport = cast(select('#config-import')[0], HTMLInputElement);
     const domExport = cast(select('#config-export')[0], HTMLAnchorElement);
+    const domTaskList = cast(select('#task-list')[0], HTMLElement);
     const domRoot = cast(select('#root')[0], HTMLElement);
     const domErrors = cast(select('#errors-list')[0], HTMLUListElement);
     const domOutput = cast(select('#output')[0], HTMLDialogElement);
@@ -591,7 +691,7 @@ const main = async () => {
     const domInputs = cast(select('#input-inputs')[0], HTMLElement);
     const domInputSend = cast(select('#input-send')[0], HTMLButtonElement);
 
-    if (!domImport || !domExport || !domRoot || !domErrors) {
+    if (!domImport || !domExport || !domRoot || !domErrors || !domTaskList) {
         alert('Initial DOM root-elements not found!');
         return;
     }
@@ -616,17 +716,15 @@ const main = async () => {
         input: null,
         pidUrl: null,
         pidUpdater: null,
+        commandUrls: new Set(),
         heldButtons: new Map(),
         commandMap: new Map(),
+        tasks: new Map(),
         config: readStorage(),
         showProcess: (commandUrl, pid) => {
             releaseAll(app);
             domInput.close();
-            const doKey = `do=getTaskInfo&pid`;
-            const pidUrl = addToken(commandUrl, '?', doKey, pid);
-            const oldUrl = window.location.toString();
-            const newUrl = addToken(oldUrl, '#', 'pidUrl', pidUrl);
-            window.open(newUrl, '_blank');
+            window.open(getPidViewerUrl(commandUrl, pid), '_blank');
         },
         showOutput: output => {
             releaseAll(app);
@@ -647,6 +745,12 @@ const main = async () => {
             releaseAll(app);
             const error = maybeError instanceof Error ? maybeError : null;
             alert('ERROR: ' + text + (error ? `\n\n${error.message}` : ''));
+        },
+        updateTaskList: () => {
+            clearDom(domTaskList);
+            for(const task of renderTasks(app)) {
+                domTaskList.appendChild(task);
+            }
         },
         onError: error => {
             if (typeof error === 'string' || error instanceof Error) {
@@ -682,10 +786,13 @@ const main = async () => {
         app.input = null;
         clearDom(domInputs);
         clearDom(domRoot);
+        app.commandUrls.clear();
+
         if (app.pidUrl) {
             domRoot.appendChild(renderProcess(app));
         } else {
             domRoot.appendChild(renderPanel(app, app.config.root));
+            refreshTasks(app);
         }
     };
 

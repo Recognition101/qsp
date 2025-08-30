@@ -22,7 +22,6 @@ import * as path from 'node:path';
  * @typedef {import('./types').ArgumentSchema} ArgumentSchema
  * @typedef {import('./types').Task} Task
  * @typedef {import('./types').TaskResults} TaskResults
- * @typedef {import('./types').TaskListing} TaskListing
  * @typedef {import('./types').ErrorResponse} ErrorResponse
  * @typedef {import('./types').IsContext} IsContext
  */
@@ -343,7 +342,7 @@ const expandArgument = (text, args) => {
         if (typeof slash === 'string' && slash.length > 0) {
             return `$${slash.substring(1)}{${string(mBody) ?? ''}}`;
         }
-        const value = args[string(mKey) ?? ''] ?? string(match) ?? '';
+        const value = args[string(mKey) ?? ''] ?? '';
         if (mFn === 'relativePath') {
             const absolutePath = /^https?:\/\//.test(value)
                 ? decodeURI(value.replace(/^[^/]*\/\/[^/]*\/|[?#].*$/g, ''))
@@ -832,10 +831,10 @@ const requestListener = async (context, req, res) => {
 
     // CLI Task List
     } else if (req.method === 'GET' && directive === 'getTasks') {
-        /** @type {TaskListing[]} */
+        /** @type {Task[]} */
         const listings = Array.from(tasks.values()).map(x => ({
-            pid: x.pid,
-            request: x.request
+            ...x,
+            results: { ...x.results, out: '', error: '' }
         }));
         respondJson(res, 200, listings);
 

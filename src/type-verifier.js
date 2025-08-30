@@ -10,7 +10,6 @@
  * @typedef {import('../types').ArgumentSchema} ArgumentSchema
  * @typedef {import('../types').Task} Task
  * @typedef {import('../types').TaskResults} TaskResults
- * @typedef {import('../types').TaskListing} TaskListing
  * @typedef {import('../types').ErrorResponse} ErrorResponse
  * @typedef {import('../types').IsContext} IsContext
  */
@@ -171,12 +170,6 @@ export const isErrorResponse = c => ({
         isConstant(/** @type {const} */('proxy-json')),
         isConstant(/** @type {const} */('proxy-response'))
     ) (isIn(c, 'type'))
-});
-
-/** @type {IsA<TaskListing>} */
-export const isTaskListing = c => ({
-    pid: isString (isIn(c, 'pid')),
-    request: isCommandRequest (isIn(c, 'request'))
 });
 
 /** @type {IsA<TaskResults>} */

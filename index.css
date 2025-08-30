@@ -74,7 +74,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 #root > .panel,
-.config {
+.config,
+.tasks {
     margin: 0.5rem;
 }
 
@@ -93,7 +94,9 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 button,
-.panel-buttons > select {
+.panel-buttons > select,
+.task a,
+.task details > summary {
     min-height: 2rem;
     padding: 3px 6px;
     border: 1px solid var(--color-button-border);
@@ -102,6 +105,7 @@ button,
     border-radius: 0.5rem;
     color: var(--color-text);
     cursor: pointer;
+    text-decoration: none;
     user-select: none;
     -webkit-user-select: none;  
     -moz-user-select: none;    
@@ -226,6 +230,7 @@ dialog {
     z-index: 1001;
 
     background-color: transparent;
+    color: var(--color-text);
     opacity: 0;
     transform: scale(0.8);
     transition:
@@ -386,10 +391,66 @@ body:has(dialog[open]) .dialog-backdrop {
     width: 100%;
 
     box-sizing: border-box;
+    border-color: var(--color-button-border);
+    background-color: var(--color-button-background);
+    color: var(--color-text);
     border-radius: 0.5rem;
     font-size: 1rem;
 }
 
+
+/* ## Task List Styles */
+
+.tasks:not(:has(.task-list > li)),
+.tasks .task details:not(:has(li)) {
+    display: none;
+}
+
+.tasks > details > :is(ol, ul) {
+    margin: 0;
+    padding-left: 1.4rem;
+}
+
+.tasks > details > summary {
+    font-size: 1.6rem;
+    cursor: pointer;
+}
+
+.tasks .task details {
+    display: contents;
+}
+
+.tasks a,
+.tasks .task details > summary {
+    display: inline-flex;
+    margin: 0 0.25rem;
+    padding: 0 0.25rem;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+}
+
+.tasks .task details > summary {
+    padding: 0 0.6rem;
+}
+
+.tasks .task-time {
+    font-size: 0.7rem;
+}
+
+.tasks .task .task-arg .task-key {
+    border: 1px solid var(--color-button-border);
+    background-color: var(--color-code-background);
+    border-radius: 0.25rem;
+    color: var(--color-gray2);
+    font-family: ui-monospace, monospace;
+    padding: 0.1rem 0.25rem;
+}
+
+.tasks .task .task-arg :is(.task-key, .task-value) {
+    word-break: break-word;
+    color: var(--color-gray);
+}
 
 /* ## Process Output Window */
 

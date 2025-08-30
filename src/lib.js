@@ -65,6 +65,13 @@ export const clamp = (x, min, max, wrap) => {
 };
 
 /**
+ * Joins strings unless any of them are null/undefined.
+ * @param {...(string|boolean|number|undefined|null)} args the items to concat
+ */
+export const join = (...args) =>
+    args.includes(null) || args.includes(undefined) ? '' : args.join('')
+
+/**
  * Creates a promise that resolves after a timeout.
  * @param {number} time the time (in ms) to wait
  * @return {Promise<void>} a promise that resolves after waiting

@@ -168,14 +168,6 @@ export type TaskResults = {
     code: number | null;
 };
 
-/** A description of a task, without providing any output. */
-export type TaskListing = {
-    /** A unique ID that identifies this task. */
-    pid: string;
-    /** A description of the request that initiated the task. */
-    request: CommandRequest;
-};
-
 /** A description of an error that occurred in the QSP server. */
 export type ErrorResponse = {
     /** The failure indication. */
@@ -232,18 +224,27 @@ export type ClientApp = {
     pidUrl: string | null;
     pidUpdater: AbortController | null;
     heldButtons: Map<PanelButton, AbortController>;
+    commandUrls: Set<string>;
     commandMap: Map<string, ClientCommandSet>;
+    tasks: Map<string, ClientTaskList>;
     config: PanelConfig;
     showProcess: (commandUrl: string, pid: string) => void;
     showOutput: (output: string) => void;
     showInput: (button: PanelButton) => void;
     showErrorModal: (message: string, error: unknown) => void;
+    updateTaskList: () => void;
     onError: (error: unknown) => void;
 };
 
 export type ClientCommandSet = {
     loader: Promise<CommandSchema[]|null>;
     commands: CommandSchema[] | null;
+};
+
+export type ClientTaskList = {
+    url: string;
+    loader: Promise<Task[]|null>;
+    tasks: Task[] | null;
 };
 
 //
