@@ -6,7 +6,7 @@ import {
     isTask
 } from './src/type-verifier.js';
 import {
-    h,
+    h as hApp,
     select,
     cast,
     clamp,
@@ -19,6 +19,7 @@ import {
  * @typedef {import('./types').Json} Json
  * @typedef {import('./types').JsonObject} JsonObject
  * @typedef {import('./types').ClientApp} ClientApp
+ * @typedef {import('./types').DomApp} DomApp
  * @typedef {import('./types').ClientCommandSet} ClientCommandSet
  * @typedef {import('./types').ClientTaskList} ClientTaskList
  * @typedef {import('./types').EventLike} EventLike
@@ -230,17 +231,18 @@ const refreshTasks = (app) => {
 
 /**
  * On a `change` or `input` event, updates the set variable to match.
- * @param {ClientApp} app the application orchestration global
+ * @param {ClientApp} _app the application orchestration global
+ * @param {PanelButton} button the button whose argument we are editing
+ * @param {string} argKey the key-name of the argument in the `button.set`
  * @param {EventLike} ev the event that triggered this
  */
-const updateInput = async (app, ev) => {
+const updateInput = async (_app, button, argKey, ev) => {
     const input = cast(ev.target, HTMLInputElement);
     const select = cast(ev.target, HTMLSelectElement);
-    const key = input?.name ?? select?.name;
     const value = input?.value ?? select?.value;
-    if (app.input && typeof key === 'string' && typeof value === 'string') {
-        app.input.set = app.input.set || {};
-        app.input.set[key] = value;
+    if (typeof value === 'string') {
+        button.set = button.set || {};
+        button.set[argKey] = value;
     }
 };
 
@@ -253,8 +255,6 @@ const updateInput = async (app, ev) => {
  * @param {boolean} [isRepeat] true if this is a repeated call
  */
 const runButton = async (app, domButton, button, signal, isRepeat) => {
-    // TODO: create event dispatcher
-
     const sub = expand.bind(null, app, button);
     const timeSent = Date.now();
 
@@ -425,11 +425,13 @@ const releaseAll = (app) => {
 // ## DOM Rendering Helper Functions
 
 /**
+ * @param {ClientApp} app the application orchestration global
  * @param {Error|string} info the error or text to display
  */
-const makeError = (info) => {
+const makeError = (app, info) => {
     const error = info instanceof Error ? info : null;
     const now = new Date();
+    const h = hApp.bind(null, app);
     return h('li', [
         h('div', [
             { className: 'errors-time' },
@@ -460,6 +462,7 @@ const makeError = (info) => {
  * @return {HTMLDivElement} the process element
  */
 const renderProcess = app => {
+    const h = app.h;
     const domOutput = h('div', { className: 'process-out' });
     const domError = h('div', { className: 'process-error' });
 
@@ -509,6 +512,7 @@ const renderProcess = app => {
  * @return {HTMLButtonElement|HTMLSelectElement} the button element
  */
 const renderButton = (app, button, isUpdate) => {
+    const h = app.h;
     const column = lookup(app, button, 'column');
     const args = lookup(app, button, 'arguments') ?? [];
     const select = args.length === 1 && args[0].values ? args[0] : null;
@@ -524,15 +528,15 @@ const renderButton = (app, button, isUpdate) => {
     const domButton = select
         ? renderSelect(app, button, select, '', button.text, {
             disabled,
-            onChange: ev => onChange(app, button, ev)
+            onChange: onChange.bind(null, app, button)
         })
         : h('button', [
             {
                 disabled,
                 style: { gridColumn: column?.toString() ?? '' },
-                onPointerdown: e => onPress(app, button, true, e),
-                onPointerup: () => onRelease(app, button),
-                onPointercancel: () => onRelease(app, button)
+                onPointerdown: onPress.bind(null, app, button, true),
+                onPointerup: onRelease.bind(null, app, button),
+                onPointercancel: onRelease.bind(null, app, button)
             },
             button.text
         ]);
@@ -560,6 +564,7 @@ const renderButton = (app, button, isUpdate) => {
  * @return {HTMLElement} the constructed panel
  */
 const renderPanel = (app, panel, level = 1) => {
+    const h = app.h;
     const header = headers[clamp(level - 1, 0, headers.length - 1)];
     const children = panel.children ?? [];
     const domButtons = (panel.buttons ?? []).map(x => renderButton(app, x));
@@ -575,7 +580,7 @@ const renderPanel = (app, panel, level = 1) => {
 
 /**
  * Renders a select field given an argument with `values`.
- * @param {ClientApp} _app the application orchestration global
+ * @param {ClientApp} app the application orchestration global
  * @param {PanelButton} _button the button containing this argument
  * @param {ArgumentSchema} arg the argument to render
  * @param {string} value the current value this select has
@@ -583,7 +588,8 @@ const renderPanel = (app, panel, level = 1) => {
  * @param {HtmlAttributeSet<'select', HTMLElement>} [attrs] optional attributes
  * @return {HTMLSelectElement} the select element representing argument
  */
-const renderSelect = (_app, _button, arg, value, title, attrs) => {
+const renderSelect = (app, _button, arg, value, title, attrs) => {
+    const h = app.h;
     const values = arg.values ?? [];
     const titleSelected = value === '' ? 'selected' : undefined;
     const domTitle = title
@@ -603,12 +609,13 @@ const renderSelect = (_app, _button, arg, value, title, attrs) => {
 };
 
 /**
- * Renders UI that controls the inputs for a given button.
+ * Renders the contents of an overlay allowing users to set input args.
  * @param {ClientApp} app the application orchestration global
  * @param {PanelButton} button the button whose inputs we render
- * @return {HTMLUListElement} the input content
+ * @return {HTMLElement[]} the input content
  */
 const renderInput = (app, button) => {
+    const h = app.h;
     const inputs = (button.arguments ?? []).map(arg => {
         const curValue = lookup(app, button, null, arg.key);
         return h('li', [
@@ -619,16 +626,32 @@ const renderInput = (app, button) => {
                 h('div', [{ className: 'input-info' }, arg.info]),
             ]),
             arg.values
-                ? renderSelect(app, button, arg, curValue ?? '')
+                ? renderSelect(app, button, arg, curValue ?? '', '', {
+                    onChange: updateInput.bind(null, app, button, arg.key)
+                })
                 : h('input', {
                     type: 'text',
                     name: arg.key,
-                    value: (curValue ?? '')
+                    value: (curValue ?? ''),
+                    onChange: updateInput.bind(null, app, button, arg.key),
+                    onInput: updateInput.bind(null, app, button, arg.key)
                 })
         ]);
     });
 
-    return h('ul', inputs);
+    return [
+        h('div', [{ className: 'input-inputs' }, h('ul', inputs)]),
+        h('div', [
+            { className: 'input-controls' },
+            h('button', [{ className: 'overlay-close' }, 'Cancel']),
+            h('button', [{
+                className: 'input-send',
+                onPointerdown: onPress.bind(null, app, button, false),
+                onPointerup: onRelease.bind(null, app, button),
+                onPointercancel: onRelease.bind(null, app, button)
+            }, 'Send'])
+        ])
+    ];
 };
 
 /**
@@ -637,6 +660,7 @@ const renderInput = (app, button) => {
  * @return {HTMLLIElement[]} the list of tasks
  */
 const renderTasks = (app) => {
+    const h = app.h;
     const tasks = app.tasks.values()
         .flatMap(x => x.tasks?.map(t => ({ url: x.url, ...t })) ?? [])
         .toArray()
@@ -702,8 +726,7 @@ const main = async () => {
     const domOutputContent = cast(select('#output-content')[0], HTMLElement);
     const domBackdrop = cast(select('#dialog-backdrop')[0], HTMLElement);
     const domInput = cast(select('#input')[0], HTMLDialogElement);
-    const domInputs = cast(select('#input-inputs')[0], HTMLElement);
-    const domInputSend = cast(select('#input-send')[0], HTMLButtonElement);
+    const domInputContent = cast(select('#input-visible')[0], HTMLElement);
 
     if (!domImport || !domExport || !domRoot || !domErrors || !domTaskList) {
         alert('Initial DOM root-elements not found!');
@@ -713,7 +736,7 @@ const main = async () => {
         alert('Initial DOM output-elements not found!');
         return;
     }
-    if (!domInput || !domInputs || !domInputSend) {
+    if (!domInput || !domInputContent) {
         alert('Initial DOM input-elements not found!');
         return;
     }
@@ -724,10 +747,16 @@ const main = async () => {
 
     domBackdrop.style.display = '';
 
+    /** @type {DomApp} */
+    const domApp = {
+        listeners: new Map(),
+        handlers: new WeakMap()
+    };
+
     /** @type {ClientApp} */
     const app = {
+        ...domApp,
         output: '',
-        input: null,
         pidUrl: null,
         pidUpdater: null,
         commandUrls: new Set(),
@@ -749,9 +778,10 @@ const main = async () => {
         },
         showInput: button => {
             releaseAll(app);
-            app.input = button;
-            clearDom(domInputs);
-            domInputs.appendChild(renderInput(app, button));
+            clearDom(domInputContent);
+            for(const child of renderInput(app, button)) {
+                domInputContent.appendChild(child);
+            }
             domOutput.close();
             domInput.showModal();
         },
@@ -768,9 +798,10 @@ const main = async () => {
         },
         onError: error => {
             if (typeof error === 'string' || error instanceof Error) {
-                domErrors.prepend(makeError(error));
+                domErrors.prepend(makeError(app, error));
             }
-        }
+        },
+        h: (tag, options) => hApp(domApp, tag, options)
     };
 
     /**
@@ -797,8 +828,7 @@ const main = async () => {
 
         app.pidUpdater?.abort();
         releaseAll(app);
-        app.input = null;
-        clearDom(domInputs);
+        clearDom(domInputContent);
         clearDom(domRoot);
 
         if (app.pidUrl) {
@@ -839,18 +869,6 @@ const main = async () => {
     domOutputCopy.addEventListener('click', async () => {
         const item = new ClipboardItem({ 'text/plain': app.output });
         await navigator.clipboard.write([item]).catch(() => null);
-    });
-
-    domInput.addEventListener('change', e => updateInput(app, e));
-    domInput.addEventListener('input', e => updateInput(app, e));
-    domInputSend.addEventListener('pointerdown', e => {
-        onPress(app, app.input, false, e);
-    });
-    domInputSend.addEventListener('pointerup', () => {
-        onRelease(app, app.input)
-    });
-    domInputSend.addEventListener('pointercancel', () => {
-        onRelease(app, app.input);
     });
 
     document.body.addEventListener('click', ev => {

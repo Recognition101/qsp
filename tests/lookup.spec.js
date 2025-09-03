@@ -26,7 +26,9 @@ const makeApp = (templates) => ({
     showOutput: () => {},
     showInput: () => {},
     showErrorModal: () => {},
-    onError: () => {}
+    onError: () => {},
+    // @ts-ignore
+    h: () => {}
 });
 
 describe('lookup, without expand', () => {

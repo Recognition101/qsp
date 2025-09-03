@@ -1,6 +1,15 @@
 // Generic (Non-Application Specific) Helper Functions
 
 /**
+ * @typedef {import('../types').DomApp} DomApp
+ * @typedef {import('../types').EventLike} EventLike
+ * @typedef {import('../types').HtmlUnknownHandler} HtmlUnknownHandler
+ */
+/**
+ * @template {keyof HTMLElementTagNameMap} T
+ * @typedef {import('../types').HtmlHandler<T>} HtmlHandler
+ */
+/**
  * @template E
  * @template T
  * @typedef {import('../types').Result<E, T>} Result
@@ -90,19 +99,20 @@ const attributeMap = {
 /**
  * Creates an HTML element with optional attributes/children.
  * @template {keyof HTMLElementTagNameMap} T the tag name of the result element
+ * @param {DomApp} app global options for the creation of elements
  * @param {T} tag the tag name of the result element
  * @param {import('../types').HtmlOptions<T, HTMLElement>} [options]
  *  a list of attribute objects and children to append to the element
  * @return {HTMLElementTagNameMap[T]} the resulting HTML DOM element
  */
-export const h = (tag, options) => {
+export const h = (app, tag, options) => {
     const el = document.createElement(tag);
     for (const child of options instanceof Array ? options : [options]) {
         const isText = typeof child === "string";
         if (isText || child instanceof Element) {
             el.appendChild(isText ? document.createTextNode(child) : child);
         } else if (child) {
-            setAttributes(el, child);
+            setAttributes(app, el, child);
         }
     }
     return el;
@@ -111,17 +121,18 @@ export const h = (tag, options) => {
 /**
  * Sets a given set of HTML attributes to specified values on a given element.
  * @template {keyof HTMLElementTagNameMap} T the tag name of the result element
+ * @param {DomApp} app global options for the creation of elements
  * @param {HTMLElementTagNameMap[T]} el the element to set attributes on
  * @param {import("../types").HtmlAttributeSet<T, HTMLElement>} attributes
  *  a map of attribute keys to their values to set on `el`
  */
-const setAttributes = (el, attributes) => {
+const setAttributes = (app, el, attributes) => {
     for (const key in attributes) {
         const value = /** @type {any} */ (attributes)[key];
         const hasValue = value || value === "" || value === 0;
 
         if (key.startsWith("on") && value) {
-            el.addEventListener(key.slice(2).toLowerCase(), value);
+            addEventListener(app, el, key, value);
         } else if (key === "style" && attributes.style) {
             Object.assign(el.style, attributes.style);
         } else if (key === "classList" && attributes.classList) {
@@ -140,6 +151,59 @@ const setAttributes = (el, attributes) => {
             el.setAttribute(attributeMap[key], String(value));
         } else if (key && key !== "locale" && hasValue) {
             el.setAttribute(key, String(value));
+        }
+    }
+};
+
+/**
+ * @template {keyof HTMLElementTagNameMap} T the tag name of the result element
+ * @param {DomApp} app global options for the creation of elements
+ * @param {HTMLElementTagNameMap[T]} el the element to set attributes on
+ * @param {string} evKey an event type key, ex: `onPointerdown`, `onclick`
+ * @param {HtmlHandler<T>} callback the fn to call
+ */
+export const addEventListener = (app, el, evKey, callback) => {
+    const evTypeInfo = evKey.toLowerCase().match(/^(?:on)?(global)?(.*)$/);
+    const isGlobal = !!evTypeInfo?.[1];
+    const evType = evTypeInfo?.[2];
+    if (!evType) {
+        return;
+    }
+
+    /** @type {Map<string, HtmlHandler<keyof HTMLElementTagNameMap>[]>} */
+    const handlerMap = app.handlers.get(el) ?? new Map();
+    const handlerList = handlerMap.get(evType) ?? [];
+    handlerList.push(/** @type {any} */(callback));
+    handlerMap.set(evType, handlerList);
+    app.handlers.set(el, handlerMap);
+
+    const listener = app.listeners.get(evType);
+    if ((!isGlobal && !listener) || (isGlobal && !listener?.isGlobal)) {
+        if (listener) {
+            const oldTarget = listener.isGlobal ? window : document.body;
+            oldTarget.removeEventListener(evType, listener.callback);
+        }
+        const callback = delegate.bind(null, app);
+        const target = isGlobal ? window : document.body;
+        target.addEventListener(evType, callback);
+        app.listeners.set(evType, { isGlobal, callback });
+    }
+};
+
+/**
+ * Delegates events to their callbacks, as indicated by a `DomApp`.
+ * @param {DomApp} app the map of callbacks to call per element
+ * @param {EventLike} ev the event that fired
+ */
+const delegate = (app, ev) => {
+    if (ev.target instanceof HTMLElement) {
+        let target = /** @type {HTMLElement|null} */(ev.target);
+        while(target) {
+            const handlerMap = app.handlers.get(target);
+            for(const handler of handlerMap?.get(ev.type) ?? []) {
+                handler(ev, target);
+            }
+            target = target.parentElement;
         }
     }
 };

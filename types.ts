@@ -218,9 +218,8 @@ export type FileNameMetadata = {
 //
 // ## Panel UI Internal Helper Types
 
-export type ClientApp = {
+export type ClientApp = DomApp & {
     output: string;
-    input: PanelButton | null;
     pidUrl: string | null;
     pidUpdater: AbortController | null;
     heldButtons: Map<PanelButton, AbortController>;
@@ -234,6 +233,10 @@ export type ClientApp = {
     showErrorModal: (message: string, error: unknown) => void;
     updateTaskList: () => void;
     onError: (error: unknown) => void;
+    h: <T extends keyof HTMLElementTagNameMap>(
+        tag: T,
+        options?: HtmlOptions<T, HTMLElement>
+    ) => HTMLElementTagNameMap[T];
 };
 
 export type ClientCommandSet = {
@@ -261,6 +264,16 @@ export type IsContext = {
 //
 // ## Panel UI Internal Helper Types: DOM Manipulation
 
+export interface DomApp {
+    listeners: Map<string, DomAppListener>,
+    handlers: WeakMap<HTMLElement, Map<string, HtmlUnknownHandler[]>>;
+};
+
+export type DomAppListener = {
+    isGlobal: boolean;
+    callback: (ev: EventLike) => void;
+};
+
 export interface EventLike {
     type: string;
     target: EventTarget | null;
@@ -270,6 +283,8 @@ export interface EventLike {
 export type HtmlHandler<T extends keyof HTMLElementTagNameMap> =
     (ev: EventLike, target: HTMLElementTagNameMap[T]) =>
         boolean | void | Promise<boolean|void>;
+
+export type HtmlUnknownHandler = HtmlHandler<keyof HTMLElementTagNameMap>;
 
 type HtmlStyle = { [ key in keyof CSSStyleDeclaration & string ]?: string };
 
