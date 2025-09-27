@@ -258,6 +258,7 @@ export const run = (cmd, args, options = null, input = null, out = null) =>
         if (spawned) {
             spawned.stdout?.on('data', x => { data.out += x; });
             spawned.stderr?.on('data', x => { data.error += x; });
+            spawned.on('error', () => { yes(null); })
             spawned.on('close', () => {
                 data.code = spawned.exitCode;
                 data.timeEnd = Date.now();
@@ -775,14 +776,13 @@ const requestListener = async (context, req, res) => {
         }
 
         const { isPersisted, arguments: args } = request;
-        const specs = Object.entries(command?.arguments ?? {});
 
         // Constrain given arguments
-        for(const [argName, spec] of specs) {
-            const value = args[argName];
-            args[argName] = spec.values
+        for(const spec of command?.arguments ?? []) {
+            const value = args[spec.key];
+            args[spec.key] = spec.values
                 ? (spec.values.find(x => x === value) ?? spec.values[0])
-                : args[argName];
+                : args[spec.key];
         }
 
         // Run Command
@@ -883,7 +883,7 @@ const requestListener = async (context, req, res) => {
 
     // Markdown File, Rendered
     } else if (render === 'md') {
-        const out = (await run('marked', ['-i', filePath]))?.out;
+        const out = (await run('npx', ['marked', '-i', filePath]))?.out;
         const isSuccess = typeof out === 'string';
         const body = isSuccess
             ? getMarkdownHtml(out, mdCss)

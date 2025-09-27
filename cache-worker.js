@@ -2,6 +2,20 @@ const cacheId = 'cache-worker-v1';
 const selfUnknown = /** @type {unknown} */(self);
 const serviceWorker = /** @type {ServiceWorkerGlobalScope} */(selfUnknown);
 
+const pages = Object.freeze(/** @type {const} */([
+    './index.html',
+    './index.css',
+    './index.js',
+    './src/lib.js',
+    './src/lookup.js',
+    './src/type-verifier.js'
+]));
+
+/** @type {Set<string>} */
+const urlSet = new Set();
+
+let currentUrl = '';
+
 /**
  * Gets a response from the cache, fetching a response upon a cache miss.
  * @param {Request} request the request to lookup in the cache
@@ -31,17 +45,23 @@ const cacheRefresh = async request => {
 };
 
 serviceWorker.addEventListener('install', ev => {
-    ev.waitUntil(caches.open(cacheId).then(cache => cache.addAll([
-        './index.html',
-        './index.css',
-        './index.js',
-        './src/lib.js',
-        './src/lookup.js',
-        './src/type-verifier.js'
-    ])));
+    currentUrl = '';
+    ev.waitUntil(caches.open(cacheId).then(cache => cache.addAll(pages)));
 });
 
 serviceWorker.addEventListener('fetch', ev => {
-    ev.respondWith(cacheGet(ev.request));
-    ev.waitUntil(cacheRefresh(ev.request));
+    if (currentUrl !== location.href) {
+        urlSet.clear();
+        for(const page of pages) {
+            urlSet.add((new URL(page, location)).href);
+        }
+        currentUrl = location.href;
+    }
+
+    if (urlSet.has(ev.request.url)) {
+        ev.respondWith(cacheGet(ev.request));
+        ev.waitUntil(cacheRefresh(ev.request));
+    } else {
+        ev.respondWith(fetch(ev.request));
+    }
 });

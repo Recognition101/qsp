@@ -21,6 +21,7 @@ const makeApp = (templates) => ({
     heldButtons: new Map(),
     commandMap: new Map(),
     config: { templates, root: { title: 'test' } },
+    setGlobals: { GLOBAL_TEST: 'T123' },
 
     showProcess: () => {},
     showOutput: () => {},
@@ -149,6 +150,43 @@ describe('lookup, without expand', () => {
         assert.strictEqual(lookup(app, buttonM2, null, 1), 'bA-1');
         assert.strictEqual(lookup(app, buttonM2, null, 'b'), 'bB-b');
         assert.strictEqual(lookup(app, buttonM2, null, 2), 'bB-2');
+    });
+
+    it('should handle looking up globals', () => {
+        /** @type {PanelButton} */
+        const a = {
+            text: 'a',
+            set: { 'a': 'a_value' }
+        };
+        /** @type {PanelButton} */
+        const b = {
+            text: 'b',
+            is: 'a',
+            set: { 'b': 'b_value' }
+        };
+        /** @type {PanelButton} */
+        const c = {
+            text: 'c',
+            set: { 'GLOBAL_TEST': 'override' }
+        };
+        /** @type {PanelButton} */
+        const d = {
+            text: 'd',
+            is: 'c',
+            set: { 'd': 'd_value' }
+        };
+
+        const app = makeApp({ a, c });
+
+        assert.strictEqual(lookup(app, a, null, 'a'), 'a_value');
+        assert.strictEqual(lookup(app, a, null, 'GLOBAL_TEST'), 'T123');
+        assert.strictEqual(lookup(app, b, null, 'a'), 'a_value');
+        assert.strictEqual(lookup(app, b, null, 'b'), 'b_value');
+        assert.strictEqual(lookup(app, b, null, 'GLOBAL_TEST'), 'T123');
+
+        assert.strictEqual(lookup(app, c, null, 'GLOBAL_TEST'), 'override');
+        assert.strictEqual(lookup(app, d, null, 'd'), 'd_value');
+        assert.strictEqual(lookup(app, d, null, 'GLOBAL_TEST'), 'override');
     });
 });
 

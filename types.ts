@@ -227,6 +227,7 @@ export type ClientApp = DomApp & {
     commandMap: Map<string, ClientCommandSet>;
     tasks: Map<string, ClientTaskList>;
     config: PanelConfig;
+    setGlobals: { [key: string]: string };
     showProcess: (commandUrl: string, pid: string) => void;
     showOutput: (output: string) => void;
     showInput: (button: PanelButton) => void;

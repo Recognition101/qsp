@@ -42,15 +42,16 @@ export const lookup = (app, button, key, setKey = null, isLookup, seen) => {
     const templates = app.config.templates;
     const parent = button?.is ? (templates?.[button.is] ?? null) : null;
 
-    const inButton = button && key !== null && setKey === null;
-    const inList = button && key === null && typeof setKey === 'number';
-    const inMap = button && key === null && typeof setKey === 'string';
-    const inSet = inList || inMap;
+    const fromButton = button && key !== null && setKey === null;
+    const fromList = button && key === null && typeof setKey === 'number';
+    const fromMap = button && key === null && typeof setKey === 'string';
+    const fromSet = fromList || fromMap;
 
-    const setValue = (inMap ? button.set?.[setKey] : null)
-        ?? (inList ? button.setList?.[setKey] : null)
-        ?? (inSet ? lookup(app, parent, null, setKey, true, seen) : null);
-    const result = inButton
+    const setValue = (fromMap ? button.set?.[setKey] : null)
+        ?? (fromList ? button.setList?.[setKey] : null)
+        ?? (fromSet ? lookup(app, parent, null, setKey, true, seen) : null)
+        ?? (fromSet ? (app.setGlobals[setKey] ?? null) : null);
+    const result = fromButton
         ? (button[key] ?? lookup(app, parent, key, null, true, seen))
         : setValue;
 

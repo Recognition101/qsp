@@ -173,6 +173,14 @@ Additionally, a `setList` property allows substitution of numeric keys. The foll
 }
 ```
 
+In addition to the key-value pairs in `set` and `setList`, there is a list of global variables that are can be referenced (and which can be overridden if a user uses the same key-name):
+
+1. `GLOBAL_PROTOCOL` - The protocol of this page (ex: `http:` or `https:`)
+2. `GLOBAL_HOST` - The current page's host (ex: `abc.example.com:1234`)
+3. `GLOBAL_HOSTNAME` - The current page's host name (ex: `abc.example.com`)
+4. `GLOBAL_PORT` - The current page's port number (ex: `1234`)
+5. `GLOBAL_PATHNAME` - The current page's path (ex: `/a/b/index.html`)
+
 Finally, transform functions can be used by prefixing the key with a function name. There are two functions:
 
 1. `${urlencode:x}` - Use `encodeURIComponent` to encode the text in `x`.

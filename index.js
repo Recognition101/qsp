@@ -764,6 +764,13 @@ const main = async () => {
         commandMap: new Map(),
         tasks: new Map(),
         config: readStorage(),
+        setGlobals: {
+            GLOBAL_PROTOCOL: window.location.protocol,
+            GLOBAL_HOST: window.location.host,
+            GLOBAL_HOSTNAME: window.location.hostname,
+            GLOBAL_PORT: window.location.port,
+            GLOBAL_PATHNAME: window.location.pathname
+        },
         showProcess: (commandUrl, pid) => {
             releaseAll(app);
             domInput.close();
