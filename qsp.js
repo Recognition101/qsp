@@ -265,10 +265,10 @@ export const run = (cmd, args, options = null, input = null, out = null) =>
                 yes(data);
             });
 
-            if (input !== null && spawned.stdin) {
-                spawned.stdin.write(input);
-                spawned.stdin.end();
+            if (input !== null) {
+                spawned.stdin?.write(input);
             }
+            spawned.stdin?.end();
         } else {
             yes(null);
         }
