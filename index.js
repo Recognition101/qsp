@@ -371,6 +371,7 @@ const onChange = (app, button, ev) => {
     }
 
     domSelect.value = '';
+    domSelect.blur();
     runButton(app, domSelect, button);
 };
 
