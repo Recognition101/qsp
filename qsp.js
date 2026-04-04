@@ -717,7 +717,7 @@ export const getIndexHtml = async (pathRoot, pathUrl) => {
             <style>${indexStyles}</style>
         </head>
         <body>
-            <h1>Index of: ${pathUrl}</h1>
+            <h1>Index of: <a href=".">${pathUrl}</a></h1>
 
             <h2 class="title-folders">Folders</h2>
             <ul class="items-folder">${folderItems.join('\n')}</ul>
