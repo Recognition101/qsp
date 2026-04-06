@@ -264,8 +264,9 @@ const runButton = async (app, domButton, button, signal, isRepeat) => {
     const showOutput = lookup(app, button, 'showOutput');
     const inRequest = lookup(app, button, 'request')
         ?? (command && commandUrl ? { method: '', url: '' } : null);
+    const isNavigation = inRequest?.pageUrl !== undefined;
 
-    if ((commandName && !command) || !inRequest || !inRequest.method) {
+    if ((commandName && !command) || !inRequest || isNavigation) {
         return;
     }
 
