@@ -265,7 +265,7 @@ const runButton = async (app, domButton, button, signal, isRepeat) => {
     const inRequest = lookup(app, button, 'request')
         ?? (command && commandUrl ? { method: '', url: '' } : null);
 
-    if ((commandName && !command) || !inRequest) {
+    if ((commandName && !command) || !inRequest || !inRequest.method) {
         return;
     }
 
@@ -510,7 +510,7 @@ const renderProcess = app => {
  * @param {ClientApp} app the application orchestration global
  * @param {PanelButton} button the button we are rendering
  * @param {boolean} [isUpdate] true if this is an update to an existing button
- * @return {HTMLButtonElement|HTMLSelectElement} the button element
+ * @return {HTMLAnchorElement|HTMLButtonElement|HTMLSelectElement} the element
  */
 const renderButton = (app, button, isUpdate) => {
     const h = app.h;
@@ -520,17 +520,23 @@ const renderButton = (app, button, isUpdate) => {
     const commandName = lookup(app, button, 'command');
     const commandUrl = lookup(app, button, 'commandUrl');
     const disabled = commandUrl ? 'disabled' : undefined;
+    const request = lookup(app, button, 'request')
+    const navigation = request?.pageUrl ? request : null;
+    const pageUrl = navigation?.pageUrl ?? null;
+    const target = navigation?.isNew ? '_blank' : '_self';
 
     button.set = button.set ?? { };
     for(const { key, values } of button.arguments ?? []) {
         button.set[key] = values ? (values[0] || '') : button.set[key];
     }
 
-    const domButton = select
-        ? renderSelect(app, button, select, '', button.text, {
-            disabled,
-            onChange: onChange.bind(null, app, button)
-        })
+    const domButton =
+        pageUrl ? h('a', [ { href: pageUrl, target }, button.text ]) :
+        select ?
+            renderSelect(app, button, select, '', button.text, {
+                disabled,
+                onChange: onChange.bind(null, app, button)
+            })
         : h('button', [
             {
                 disabled,
@@ -548,8 +554,12 @@ const renderButton = (app, button, isUpdate) => {
             if (command) {
                 button.arguments = command.arguments;
                 const domNewButton = renderButton(app, button, true);
+                const isFormField = domNewButton instanceof HTMLButtonElement
+                    || domNewButton instanceof HTMLSelectElement;
                 domButton.replaceWith(domNewButton);
-                domNewButton.disabled = false;
+                if (isFormField) {
+                    domNewButton.disabled = false;
+                }
             }
         });
     }

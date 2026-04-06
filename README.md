@@ -126,6 +126,27 @@ In the following example, <kbd>B</kbd> is displayed in the same column as <kbd>A
 }
 ```
 
+### Navigation Requests
+
+If a [`NavigationRequest`](./types.ts) object is provided as a button's `request` property, the button will act like a hyperlink rather than performing an HTTP(S) request. In the following example, a single button that opens `https://github.com` in a new tab (using the `"isNew": true` flag) is created.
+
+```json
+{
+    "root": {
+        "title": "Main Panel",
+        "buttons": [
+            {
+                "text": "A",
+                "request": {
+                    "pageUrl": "https://github.com",
+                    "isNew": true
+                }
+            }
+        ]
+    }
+}
+```
+
 ### Button Property Expansion
 
 Buttons also have a `set` property that contains an arbitrary map of key-strings to value-strings. When reading any string-based property, the application replaces all instances of `${key}` with the value of `set[key]`.

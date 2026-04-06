@@ -3,7 +3,7 @@
     "version": "1.0.0",
     "type": "module",
     "scripts": {
-        "demo": "./qsp.js",
+        "demo": "./qsp.js -l _LOCAL",
         "lint": "npm run lint-ts",
         "lint-ts": "npx tsc -p ./",
         "test": "node --test './tests/*.spec.js'"

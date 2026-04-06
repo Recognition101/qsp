@@ -25,10 +25,11 @@ export type Panel = {
     children?: Panel[];
 };
 
-/** A single button that makes an HTTP request when activated. */
 export type PanelButton = {
     /** The text describing this button (presented to the user). */
     text: string;
+    /** The index of the column this button must be presented in. */
+    column?: number;
 
     /**
      * The name of a button in the `PanelConfig`'s `templates` map.
@@ -41,20 +42,19 @@ export type PanelButton = {
     set?: { [key: string]: string };
     /** A list mapping numeric-indices to values for string expansion. */
     setList?: string[];
-    /** A list of inputs to present to the user to fill `set`. */
-    arguments?: ArgumentSchema[];
+
+    /** The HTTP request to make when this button is activated. */
+    request?: HttpCallRequest | NavigationRequest;
 
     /** The time (in ms) before a held button re-activates. */
     repeat?: number;
     /** The time (in ms) before the first re-activation of a held button. */
     repeatInitial?: number;
-    /** The index of the column this button must be presented in. */
-    column?: number;
+
+    /** A list of inputs to present to the user to fill `set`. */
+    arguments?: ArgumentSchema[];
     /** If set to `true`, the HTTP response will be presented to the user. */
     showOutput?: boolean;
-
-    /** The HTTP request to make when this button is activated. */
-    request?: HttpCallRequest;
 
     /** If given, proxy all HTTP requests through this URL. */
     proxyUrl?: string;
@@ -77,6 +77,17 @@ export type HttpCallRequest = {
     headers?: { [key: string]: string };
     /** The HTTP body to use (ex: for a 'POST' request). */
     body?: string;
+
+    pageUrl?: undefined;
+};
+
+export type NavigationRequest = {
+    /** The URL of the page to navigate to. */
+    pageUrl: string;
+    /** If true, open this link in a new window/tab. */
+    isNew?: boolean;
+
+    method?: undefined;
 };
 
 //
@@ -375,3 +386,5 @@ export type Json =
     | null;
 
 export type JsonObject = { [key: string]: Json };
+
+export type Extend<A, B> = Omit<A, keyof B> & B;

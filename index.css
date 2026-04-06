@@ -93,7 +93,15 @@ h1, h2, h3, h4, h5, h6 {
     text-align-last: center;
 }
 
+.panel-buttons > a {
+    text-decoration: none;
+    text-align: center;
+    line-height: normal;
+    min-width: 3.6rem;
+}
+
 button,
+.panel-buttons > a,
 .panel-buttons > select,
 .task a,
 .task details > summary {
@@ -421,13 +429,18 @@ body:has(dialog[open]) .dialog-backdrop {
 }
 
 .tasks a,
-.tasks .task details > summary {
+.tasks .task details > summary,
+.panel-buttons > a {
     display: inline-flex;
     margin: 0 0.25rem;
     padding: 0 0.25rem;
     align-items: center;
     justify-content: center;
     font-size: 0.8rem;
+}
+
+.panel-buttons > a {
+    font-size: 0.7rem;
 }
 
 .tasks .task details > summary {

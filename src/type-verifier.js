@@ -3,6 +3,7 @@
  * @typedef {import('../types').Panel} Panel
  * @typedef {import('../types').PanelButton} PanelButton
  * @typedef {import('../types').HttpCallRequest} HttpCallRequest
+ * @typedef {import('../types').NavigationRequest} NavigationRequest
  * @typedef {import('../types').QspServerConfig} QspServerConfig
  * @typedef {import('../types').QspServerConfigCommand} QspServerConfigCommand
  * @typedef {import('../types').CommandRequest} CommandRequest
@@ -226,22 +227,34 @@ export const isHttpCallRequest = c => ({
     method: isString(isIn(c, 'method')),
     url: isString(isIn(c, 'url')),
     headers: isMaybe(isObjectMap(isString))(isIn(c, 'headers')),
-    body: isMaybe(isString)(isIn(c, 'body'))
+    body: isMaybe(isString)(isIn(c, 'body')),
+    pageUrl: isUndefined(isIn(c, 'pageUrl'))
+});
+
+/** @type {IsA<NavigationRequest>} */
+export const isNavigationRequest = c => ({
+    pageUrl: isString(isIn(c, 'pageUrl')),
+    isNew: isMaybe(isBoolean)(isIn(c, 'isNew')),
+    method: isUndefined(isIn(c, 'method'))
 });
 
 /** @type {IsA<PanelButton>} */
 export const isPanelButton = c => ({
     text: isString (isIn(c, 'text')),
+    column: isMaybe(isNumber) (isIn(c, 'column')),
     is: isMaybe(isString) (isIn(c, 'is')),
     set: isMaybe(isObjectMap(isString)) (isIn(c, 'set')),
     setList: isMaybe(isArrayOf(isString)) (isIn(c, 'setList')),
-    arguments: isMaybe(isArrayOf(isArgumentSchema)) (isIn(c, 'arguments')),
-    proxyUrl: isMaybe(isString) (isIn(c, 'proxyUrl')),
+    request: isOneOf(
+        isUndefined,
+        isHttpCallRequest,
+        isNavigationRequest
+    )(isIn(c, 'request')),
     repeat: isMaybe(isNumber) (isIn(c, 'repeat')),
     repeatInitial: isMaybe(isNumber) (isIn(c, 'repeatInitial')),
-    column: isMaybe(isNumber) (isIn(c, 'column')),
+    arguments: isMaybe(isArrayOf(isArgumentSchema)) (isIn(c, 'arguments')),
     showOutput: isMaybe(isBoolean) (isIn(c, 'showOutput')),
-    request: isMaybe(isHttpCallRequest) (isIn(c, 'request')),
+    proxyUrl: isMaybe(isString) (isIn(c, 'proxyUrl')),
     command: isMaybe(isString) (isIn(c, 'command')),
     commandUrl: isMaybe(isString) (isIn(c, 'commandUrl')),
     isPersisted: isMaybe(isBoolean)  (isIn(c, 'isPersisted'))
