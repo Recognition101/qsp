@@ -7,10 +7,12 @@ import {
     isBoolean,
     isString,
     isNumber,
+    isMaybe,
     isNull,
     isUndefined,
     isConstant,
     isIn,
+    isStrictKeyed,
     TvError
 } from '../src/type-verifier.js';
 
@@ -51,7 +53,7 @@ const tryTest = fn => {
     return null;
 };
 
-describe('lookup, without expand', () => {
+describe('Type Verifier', () => {
     it('should verify primitives', () => {
         const null1 = tryTest(() => isNull({ value: null }));
         const null2 = tryTest(() => isNull({ value: 'hi' }));
@@ -185,6 +187,35 @@ describe('lookup, without expand', () => {
                 '[At key-path `type`, expected `a` but was given `string` ' +
                     '(c).] | [At key-path `type`, expected `b` but was ' +
                     'given `string` (c).]'
+            );
+        }
+    });
+
+    it('should properly restrict keys with isStrictKeyed', () => {
+        const key = 'root';
+        const isDog = isStrictKeyed(c => ({
+            color: isString(isIn(c, 'color')),
+            height: isNumber(isIn(c, 'height')),
+            isFed: isMaybe(isBoolean)(isIn(c, 'isFed'))
+        }));
+
+        const dog = Object.freeze({ color: 'red', height: 100 });
+        const dogFed = Object.freeze({ ...dog, isFed: true });
+        const dogFail = Object.freeze({ ...dog, missingOops: 'oops!' });
+        
+        const dogResult = tryTest(() => isDog({ key, value: dog }));
+        const dogFedResult = tryTest(() => isDog({ key, value: dogFed }));
+        const dogFailResult = tryTest(() => isDog({ key, value: dogFail }));
+
+        assert.deepEqual(dogResult, { ...dog, isFed: undefined });
+        assert.deepEqual(dogFedResult, { ...dogFed });
+
+        assert.strictEqual(dogFailResult instanceof TvError, true);
+        if (dogFailResult instanceof TvError) {
+            assert.strictEqual(
+                dogFailResult.message,
+                'At key-path `root[missingOops]`, expected `undefined` ' +
+                'but was given `string` (oops!).'
             );
         }
     });

@@ -110,6 +110,26 @@ export const isObjectMap = fn => c => {
 };
 
 /**
+ * Creates a checker that restricts an object from having non-specified keys.
+ * @template {Object} T the type of the object itself
+ * @param {IsA<T>} fn the checker that verifies the object is a `T`
+ * @return {IsA<T>} a checker that ensures the `fn(c)` has no extra keys
+ */
+export const isStrictKeyed = fn => c => {
+    if (!c.value || typeof c.value !== 'object') {
+        throw new TvError(c, 'object');
+    }
+    const constructed = fn(c);
+    for(const [key, value] of Object.entries(c.value)) {
+        if (!(key in constructed)) {
+            const context = { key: `${c.key}[${key}]`, value };
+            throw new TvError(context, 'undefined');
+        }
+    }
+    return constructed;
+};
+
+/**
  * Creates an array-checker whose elements are checked by a given checker.
  * @template T the type of the children
  * @param {IsA<T>} fn the child checker
@@ -160,7 +180,7 @@ export const isMaybe = fn => isOneOf(fn, isUndefined);
 export const isMaybeArray = fn => isOneOf(isArrayOf(fn), fn);
 
 /** @type {IsA<ErrorResponse>} */
-export const isErrorResponse = c => ({
+export const isErrorResponse = isStrictKeyed(c => ({
     status: isConstant(/** @type {const} */('error')) (isIn(c, 'status')),
     message: isString (isIn(c, 'message')),
     type: isOneOf(
@@ -171,75 +191,75 @@ export const isErrorResponse = c => ({
         isConstant(/** @type {const} */('proxy-json')),
         isConstant(/** @type {const} */('proxy-response'))
     ) (isIn(c, 'type'))
-});
+}));
 
 /** @type {IsA<TaskResults>} */
-export const isTaskResults = c => ({
+export const isTaskResults = isStrictKeyed(c => ({
     out: isString (isIn(c, 'out')),
     error: isString (isIn(c, 'error')),
     timeStart: isNumber (isIn(c, 'timeStart')),
     timeEnd: isOneOf(isNull, isNumber) (isIn(c, 'timeEnd')),
     code: isOneOf(isNull, isNumber) (isIn(c, 'code')),
-});
+}));
 
 /** @type {IsA<Task>} */
-export const isTask = c => ({
+export const isTask = isStrictKeyed(c => ({
     pid: isString (isIn(c, 'pid')),
     request: isCommandRequest (isIn(c, 'request')),
     results: isTaskResults (isIn(c, 'results'))
-});
+}));
 
 /** @type {IsA<ArgumentSchema>} */
-export const isArgumentSchema = c => ({
+export const isArgumentSchema = isStrictKeyed(c => ({
     key: isString (isIn(c, 'key')),
     info: isString (isIn(c, 'info')),
     values: isMaybe(isArrayOf(isString)) (isIn(c, 'values'))
-});
+}));
 
 /** @type {IsA<CommandSchema>} */
-export const isCommandSchema = c => ({
+export const isCommandSchema = isStrictKeyed(c => ({
     name: isString (isIn(c, 'name')),
     arguments: isMaybe(isArrayOf(isArgumentSchema)) (isIn(c, 'arguments'))
-});
+}));
 
 /** @type {IsA<CommandRequest>} */
-export const isCommandRequest = c => ({
+export const isCommandRequest = isStrictKeyed(c => ({
     name: isString (isIn(c, 'name')),
     arguments: isObjectMap(isString) (isIn(c, 'arguments')),
     isPersisted: isMaybe(isBoolean) (isIn(c, 'isPersisted')),
-});
+}));
 
 /** @type {IsA<QspServerConfigCommand>} */
-export const isQspServerConfigCommand = c => ({
+export const isQspServerConfigCommand = isStrictKeyed(c => ({
     name: isString (isIn(c, 'name')),
     arguments: isMaybe(isArrayOf(isArgumentSchema)) (isIn(c, 'arguments')),
     cwd: isMaybe(isString) (isIn(c, 'cwd')),
     runner: isArrayOf(isString) (isIn(c, 'runner'))
-});
+}));
 
 /** @type {IsA<QspServerConfig>} */
-export const isQspServerConfig = c => ({
+export const isQspServerConfig = isStrictKeyed(c => ({
     commands: isMaybe(isArrayOf(isQspServerConfigCommand))(isIn(c, 'commands'))
-});
+}));
 
 /** @type {IsA<HttpCallRequest>} */
-export const isHttpCallRequest = c => ({
+export const isHttpCallRequest = isStrictKeyed(c => ({
     method: isString(isIn(c, 'method')),
     url: isString(isIn(c, 'url')),
     headers: isMaybe(isObjectMap(isString))(isIn(c, 'headers')),
     body: isMaybe(isString)(isIn(c, 'body')),
     pageUrl: isUndefined(isIn(c, 'pageUrl'))
-});
+}));
 
 /** @type {IsA<NavigationRequest>} */
-export const isNavigationRequest = c => ({
+export const isNavigationRequest = isStrictKeyed(c => ({
     pageUrl: isString(isIn(c, 'pageUrl')),
     isNew: isMaybe(isBoolean)(isIn(c, 'isNew')),
     method: isUndefined(isIn(c, 'method'))
-});
+}));
 
 /** @type {IsA<PanelButton>} */
-export const isPanelButton = c => ({
+export const isPanelButton = isStrictKeyed(c => ({
     text: isString (isIn(c, 'text')),
     column: isMaybe(isNumber) (isIn(c, 'column')),
     is: isMaybe(isString) (isIn(c, 'is')),
@@ -258,17 +278,17 @@ export const isPanelButton = c => ({
     command: isMaybe(isString) (isIn(c, 'command')),
     commandUrl: isMaybe(isString) (isIn(c, 'commandUrl')),
     isPersisted: isMaybe(isBoolean)  (isIn(c, 'isPersisted'))
-});
+}));
 
 /** @type {IsA<Panel>} */
-export const isPanel = c => ({
+export const isPanel = isStrictKeyed(c => ({
     title: isString (isIn(c, 'title')),
     buttons: isMaybe(isArrayOf(isPanelButton)) (isIn(c, 'buttons')),
     children: isMaybe(isArrayOf(isPanel)) (isIn(c, 'children'))
-});
+}));
 
 /** @type {IsA<PanelConfig>} */
-export const isPanelConfig = c => ({
+export const isPanelConfig = isStrictKeyed(c => ({
     templates: isMaybe(isObjectMap(isPanelButton)) (isIn(c, 'templates')),
     root: isPanel (isIn(c, 'root'))
-});
+}));
