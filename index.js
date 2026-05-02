@@ -728,6 +728,7 @@ const renderTasks = (app) => {
 // ## Main Function
 
 const main = async () => {
+    const domFromUrl = cast(select('#config-import-url')[0], HTMLButtonElement);
     const domImport = cast(select('#config-import')[0], HTMLInputElement);
     const domExport = cast(select('#config-export')[0], HTMLAnchorElement);
     const domTaskList = cast(select('#task-list')[0], HTMLElement);
@@ -740,7 +741,11 @@ const main = async () => {
     const domInput = cast(select('#input')[0], HTMLDialogElement);
     const domInputContent = cast(select('#input-visible')[0], HTMLElement);
 
-    if (!domImport || !domExport || !domRoot || !domErrors || !domTaskList) {
+    if (!domImport || !domExport || !domFromUrl) {
+        alert('Initial Import/Export elements not found!');
+        return;
+    }
+    if (!domRoot || !domErrors || !domTaskList) {
         alert('Initial DOM root-elements not found!');
         return;
     }
@@ -862,9 +867,11 @@ const main = async () => {
     updateUi(app.config);
 
     // Event Handling
-    domImport.addEventListener('change', async () => {
-        const file = domImport.files?.item(0);
-        const textJs = file ? await file.text() : 'null';
+    /**
+     * Imports configuration from some text.
+     * @param {string} textJs the JS or JSON text to use as configuration
+     */
+    const importConfig = (textJs) => {
         const textJson = textJs.replace(jsToJson, '');
         domImport.value = '';
 
@@ -883,6 +890,20 @@ const main = async () => {
         }
 
         updateUi(panelConfig.value, true);
+    };
+    
+    domImport.addEventListener('change', async () => {
+        const file = domImport.files?.item(0);
+        const textJs = file ? await file.text() : 'null';
+        importConfig(textJs);
+    });
+
+    domFromUrl.addEventListener('click', async () => {
+        const url = window.prompt('URL:', '');
+        if (url) {
+            const textJs = await (await fetch(url)).text();
+            importConfig(textJs);
+        }
     });
 
     domOutputCopy.addEventListener('click', async () => {
