@@ -30,6 +30,7 @@ import {
  * @typedef {import('./types').HttpCallRequest} HttpCallRequest
  * @typedef {import('./types').CommandSchema} CommandSchema
  * @typedef {import('./types').ArgumentSchema} ArgumentSchema
+ * @typedef {import('./types').DomDetailsSet} DomDetailsSet
  */
 /**
  * @template E
@@ -579,15 +580,26 @@ const renderPanel = (app, panel, level = 1) => {
     const h = app.h;
     const header = headers[clamp(level - 1, 0, headers.length - 1)];
     const children = panel.children ?? [];
-    const domButtons = (panel.buttons ?? []).map(x => renderButton(app, x));
-    const domChildren = children.map(x => renderPanel(app, x, level + 1));
-    
-    return h('div', [
-        { className: 'panel' },
-        h(header, [panel.title]),
-        h('div', [{ className: 'panel-buttons' }, ...domButtons]),
-        ...domChildren
-    ]);
+
+    const domHeader = h(header, [panel.title]);
+    const domBody = [
+        h('div', [
+            { className: 'panel-buttons' },
+            ...(panel.buttons ?? []).map(x => renderButton(app, x))
+        ]),
+        ...children.map(x => renderPanel(app, x, level + 1))
+    ];
+
+    if (!panel.foldType || panel.foldType === 'none') {
+        return h('div', [{ className: 'panel' }, domHeader, ...domBody]);
+    } else {
+        return h('details', [
+            { className: 'panel', open: panel.foldType === 'open' },
+            h('summary', [domHeader]),
+            h('div', domBody)
+        ]);
+    }
+
 };
 
 /**
@@ -819,6 +831,7 @@ const main = async () => {
             for(const task of renderTasks(app)) {
                 domTaskList.appendChild(task);
             }
+            updateDetailsHeights();
         },
         onError: error => {
             if (typeof error === 'string' || error instanceof Error) {
@@ -826,6 +839,27 @@ const main = async () => {
             }
         },
         h: (tag, options) => hApp(domApp, tag, options)
+    };
+
+    /**
+     * Updates all <details> elements with a maximum height.
+     */
+    const updateDetailsHeights = () => {
+        /** @type {DomDetailsSet[]} */
+        const detailsSets = [];
+        for(const summary of select('summary')) {
+            const details = cast(summary.parentElement, HTMLDetailsElement);
+            if (details) {
+                detailsSets.push({ details, summary });
+            }
+        }
+        
+        document.body.classList.add('is-measuring-details');
+        for(const { details, summary } of detailsSets) {
+            const height = details.scrollHeight - summary.scrollHeight;
+            details.style.setProperty('--details-max-height', `${height}px`);
+        }
+        document.body.classList.remove('is-measuring-details');
     };
 
     /**
@@ -862,6 +896,8 @@ const main = async () => {
             refreshTasks(app);
             domRoot.appendChild(renderPanel(app, app.config.root));
         }
+
+        updateDetailsHeights();
     };
 
     updateUi(app.config);
@@ -921,6 +957,17 @@ const main = async () => {
         } else if (closeBtn && closeTarget) {
             cast(closeTarget, HTMLDialogElement)?.close();
         }
+    });
+
+    let windowResizeDebounceTimer = /** @type {number|null} */(null);
+    window.addEventListener('resize', () => {
+        if (windowResizeDebounceTimer !== null) {
+            window.clearTimeout(windowResizeDebounceTimer);
+        }
+        windowResizeDebounceTimer = window.setTimeout(
+            updateDetailsHeights,
+            1000
+        );
     });
 };
 

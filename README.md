@@ -31,6 +31,7 @@ For example, this configuration will display a **Main Panel**, with **Sub Panel 
             },
             {
                 "title": "Sub Panel B",
+                "foldType": "closed",
                 "buttons": [
                     { "text": "B-1" },
                     { "text": "B-2" }
@@ -42,6 +43,8 @@ For example, this configuration will display a **Main Panel**, with **Sub Panel 
 ```
 
 Note how `children` and `buttons` are optional - the **Main Panel** has no `buttons`, and both sub-panels have no `children` panels.
+
+Additionally, panels can optionally contain a `"foldType"` property. If set to `"none"` (or not provided), the panel will not support folding. If it is set to either `"open"` or `"closed"` the panel will support folding, initializing the fold to be open or closed respectively.
 
 Buttons, by default, do nothing when pressed - so these buttons will simply display their `text`.
 

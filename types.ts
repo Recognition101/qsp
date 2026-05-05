@@ -19,6 +19,8 @@ export type PanelConfig = {
 export type Panel = {
     /** The title describing this collection of buttons. */
     title: string;
+    /** Whether this panel folds. If so, whether or not it begins folded. */
+    foldType?: 'none' | 'open' | 'closed';
     /** The list of buttons to present. */
     buttons?: PanelButton[];
     /** A list of sub-panels to present under this one's buttons. */
@@ -275,6 +277,11 @@ export type IsContext = {
 //
 //
 // ## Panel UI Internal Helper Types: DOM Manipulation
+
+export interface DomDetailsSet {
+    details: HTMLDetailsElement;
+    summary: HTMLElement;
+};
 
 export interface DomApp {
     listeners: Map<string, DomAppListener>,

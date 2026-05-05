@@ -32,6 +32,8 @@ body {
     --color-output-backdrop: rgba(0, 0, 0, 0.4);
     --color-output-border: var(--color-gray);
 
+    --details-max-height: none;
+
     background-color: var(--color-background);
     color: var(--color-text);
     font-family: system-ui;
@@ -68,9 +70,35 @@ h4 { font-size: 1rem; }
 h5 { font-size: 0.8rem; }
 h6 { font-size: 0.5rem; }
 
-h1, h2, h3, h4, h5, h6 {
-    margin: 1rem 0;
-    padding: 0;
+details > summary:has(> :is(h1, h2, h3, h4, h5, h6)) {
+    list-style: none;
+    cursor: pointer;
+}
+details > summary:has(> :is(h1, h2, h3, h4, h5, h6))::marker {
+    display: none;
+}
+details > summary > :is(h1, h2, h3, h4, h5, h6)::after {
+    content: '\25b6';
+    display: inline-block;
+    margin-left: 0.2rem;
+    transition: transform 0.5s ease;
+    transform-origin: 50% 60%;
+
+}
+details[open] > summary > :is(h1, h2, h3, h4, h5, h6)::after {
+    transform: rotate(90deg);
+}
+::details-content {
+    content-visibility: visible;
+    transition: max-height 0.5s ease;
+    overflow: clip;
+    max-height: 0px;
+}
+details[open]::details-content {
+    max-height: var(--details-max-height);
+}
+.is-measuring-details details::details-content {
+    max-height: none;
 }
 
 #root > .panel,

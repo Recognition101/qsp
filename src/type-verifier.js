@@ -283,6 +283,11 @@ export const isPanelButton = isStrictKeyed(c => ({
 /** @type {IsA<Panel>} */
 export const isPanel = isStrictKeyed(c => ({
     title: isString (isIn(c, 'title')),
+    foldType: isMaybe(isOneOf(
+        isConstant(/** @type {const} */('none')),
+        isConstant(/** @type {const} */('open')),
+        isConstant(/** @type {const} */('closed')),
+    )) (isIn(c, 'foldType')),
     buttons: isMaybe(isArrayOf(isPanelButton)) (isIn(c, 'buttons')),
     children: isMaybe(isArrayOf(isPanel)) (isIn(c, 'children'))
 }));
