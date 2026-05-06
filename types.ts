@@ -57,6 +57,14 @@ export type PanelButton = {
     arguments?: ArgumentSchema[];
     /** If set to `true`, the HTTP response will be presented to the user. */
     showOutput?: boolean;
+    /**
+     * If set to `true` (or given a replacer), this button's `text` label
+     * will be set to the response text (whenever run). A `PanelTextReplacer`
+     * can be provided to replace text within the response before display.
+     */
+    textOutput?: boolean | PanelTextReplacer;
+    /** Re-run this button automatically whenever these given events occur. */
+    runOn?: PanelEventCommand[];
 
     /** If given, proxy all HTTP requests through this URL. */
     proxyUrl?: string;
@@ -67,6 +75,22 @@ export type PanelButton = {
     commandUrl?: string;
     /** Set to true for long-running commands to indicate streaming output. */
     isPersisted?: boolean;
+};
+
+/** A description of a find-replace operation to perform on text. */
+export type PanelTextReplacer = {
+    /** The string term (regular expression) to look for. */
+    searchTerm: string;
+    /** The text to replace anything matching the search term with. */
+    replacement: string;
+    /** Optional regular expression flags to use. */
+    flags?: string;
+};
+
+/** A description of a command that has been run by any `PanelButton`. */
+export type PanelEventCommand = {
+    /** The name of the command. */
+    command: string;
 };
 
 /** A description of an HTTP request. */
@@ -226,7 +250,6 @@ export type FileNameMetadata = {
     type: string;
 };
 
-
 //
 //
 // ## Panel UI Internal Helper Types
@@ -235,15 +258,15 @@ export type ClientApp = DomApp & {
     output: string;
     pidUrl: string | null;
     pidUpdater: AbortController | null;
-    heldButtons: Map<PanelButton, AbortController>;
     commandUrls: Set<string>;
     commandMap: Map<string, ClientCommandSet>;
     tasks: Map<string, ClientTaskList>;
     config: PanelConfig;
+    buttons: Set<ClientButton>;
     setGlobals: { [key: string]: string };
     showProcess: (commandUrl: string, pid: string) => void;
-    showOutput: (output: string) => void;
-    showInput: (button: PanelButton) => void;
+    showOutput: (output: ClientOutput) => void;
+    showInput: (button: ClientButton) => void;
     showErrorModal: (message: string, error: unknown) => void;
     updateTaskList: () => void;
     onError: (error: unknown) => void;
@@ -262,6 +285,23 @@ export type ClientTaskList = {
     url: string;
     loader: Promise<Task[]|null>;
     tasks: Task[] | null;
+};
+
+export type ClientButton = {
+    config: PanelButton;
+    dom: ClientButtonDom;
+    held: AbortController | null;
+    hasLoadedCommands?: boolean;
+};
+
+export type ClientButtonDom =
+    | HTMLAnchorElement
+    | HTMLButtonElement
+    | HTMLSelectElement;
+
+export type ClientOutput = {
+    out: string | null;
+    error: string | null;
 };
 
 //

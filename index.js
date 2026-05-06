@@ -7,6 +7,7 @@ import {
 } from './src/type-verifier.js';
 import {
     h as hApp,
+    setAttributes,
     select,
     cast,
     clamp,
@@ -19,9 +20,12 @@ import {
  * @typedef {import('./types').Json} Json
  * @typedef {import('./types').JsonObject} JsonObject
  * @typedef {import('./types').ClientApp} ClientApp
- * @typedef {import('./types').DomApp} DomApp
  * @typedef {import('./types').ClientCommandSet} ClientCommandSet
  * @typedef {import('./types').ClientTaskList} ClientTaskList
+ * @typedef {import('./types').ClientButton} ClientButton
+ * @typedef {import('./types').ClientButtonDom} ClientButtonDom
+ * @typedef {import('./types').ClientOutput} ClientOutput
+ * @typedef {import('./types').DomApp} DomApp
  * @typedef {import('./types').EventLike} EventLike
  *
  * @typedef {import('./types').PanelConfig} PanelConfig
@@ -233,7 +237,7 @@ const refreshTasks = (app) => {
 /**
  * On a `change` or `input` event, updates the set variable to match.
  * @param {ClientApp} _app the application orchestration global
- * @param {PanelButton} button the button whose argument we are editing
+ * @param {ClientButton} button the button whose argument we are editing
  * @param {string} argKey the key-name of the argument in the `button.set`
  * @param {EventLike} ev the event that triggered this
  */
@@ -242,28 +246,28 @@ const updateInput = async (_app, button, argKey, ev) => {
     const select = cast(ev.target, HTMLSelectElement);
     const value = input?.value ?? select?.value;
     if (typeof value === 'string') {
-        button.set = button.set || {};
-        button.set[argKey] = value;
+        button.config.set = button.config.set || {};
+        button.config.set[argKey] = value;
     }
 };
 
 /**
  * Runs a button command, possibly setting up a repeat-timer.
  * @param {ClientApp} app the application orchestration global
- * @param {HTMLElement|null} domButton the button being held
- * @param {PanelButton} button the button being held
- * @param {AbortSignal} [signal] a signal to stop repeating
- * @param {boolean} [isRepeat] true if this is a repeated call
+ * @param {ClientButton} button the button being run
+ * @param {'REPEAT'|'HOLD'} [cause] what this button is being run by
  */
-const runButton = async (app, domButton, button, signal, isRepeat) => {
-    const sub = expand.bind(null, app, button);
+const runButton = async (app, button, cause) => {
+    const config = button.config;
+    const sub = expand.bind(null, app, config);
     const timeSent = Date.now();
 
-    const { commandName, commandUrl, command } = getCommand(app, button);
-    const proxyUrl = lookup(app, button, 'proxyUrl');
-    const isPersisted = !!lookup(app, button, 'isPersisted');
-    const showOutput = lookup(app, button, 'showOutput');
-    const inRequest = lookup(app, button, 'request')
+    const { commandName, commandUrl, command } = getCommand(app, config);
+    const proxyUrl = lookup(app, config, 'proxyUrl');
+    const isPersisted = !!lookup(app, config, 'isPersisted');
+    const showOutput = lookup(app, config, 'showOutput');
+    const textOutput = lookup(app, config, 'textOutput');
+    const inRequest = lookup(app, config, 'request')
         ?? (command && commandUrl ? { method: '', url: '' } : null);
     const isNavigation = inRequest?.pageUrl !== undefined;
 
@@ -271,7 +275,7 @@ const runButton = async (app, domButton, button, signal, isRepeat) => {
         return;
     }
 
-    domButton?.classList.add('is-sending');
+    button.dom.classList.add('is-sending');
 
     // Create `request` as input (`inRequest`) with substitutions made
     const inHeaders = Array.from(Object.entries(inRequest.headers ?? {}));
@@ -292,7 +296,7 @@ const runButton = async (app, domButton, button, signal, isRepeat) => {
         request.url = request.url || addToken(commandUrl, '?', 'do=run');
         request.body = request.body || JSON.stringify({
             name: command.name,
-            arguments: (button.set ?? {}),
+            arguments: (config.set ?? {}),
             isPersisted
         });
     }
@@ -306,7 +310,7 @@ const runButton = async (app, domButton, button, signal, isRepeat) => {
         request.body = proxyBody;
     }
     
-    // Make HTTP request, handle response
+    // Make HTTP request
     /** @type {RequestInit} */
     const fetchOptions = {
         mode: !showOutput ? 'no-cors' : undefined,
@@ -318,20 +322,44 @@ const runButton = async (app, domButton, button, signal, isRepeat) => {
     const response = await fetch(request.url, fetchOptions)
         .then(x => x.text())
         .catch(e => { app.onError(e); return null; });
+
+    // Display HTTP response
+    /** @type {ClientOutput} */
+    let output = { out: response, error: null };
     if (response && command && commandUrl) {
-        const { value: task, error } = doTry(() =>
-            isTask({ value: JSON.parse(response) })
-        );
+        output.out = null;
+        const taskTry = doTry(() => isTask({ value: JSON.parse(response) }));
         refreshTasks(app);
-        if (!task) {
-            app.showErrorModal('Response was not a `Task`.', error);
+        if (!taskTry.value) {
+            app.showErrorModal('Response was not a `Task`.', taskTry.error);
         } else if (isPersisted) {
-            app.showProcess(commandUrl, task.pid);
+            app.showProcess(commandUrl, taskTry.value.pid);
         } else {
-            app.showOutput(task.results.out);
+            output.out = taskTry.value.results.out;
+            output.error = taskTry.value.results.error;
         }
-    } else if (response && showOutput) {
-        app.showOutput(response);
+    }
+    if (showOutput && output.out !== null && !textOutput) {
+        app.showOutput(output);
+    }
+
+    // Update button text from HTTP response (if needed)
+    if (textOutput === true) {
+        button.dom.innerText = output.out ?? '';
+    } else if (textOutput) {
+        const text = output.out ?? '';
+        const matcher = new RegExp(textOutput.searchTerm, textOutput.flags);
+        button.dom.innerText = text.replace(matcher, textOutput.replacement);
+    }
+
+    // Update other buttons `runOn`
+    if (commandName) {
+        for(const button2 of app.buttons) {
+            const runOn = lookup(app, button2.config, 'runOn');
+            if (runOn?.find(x => x.command === commandName)) {
+                runButton(app, button2);
+            }
+        }
     }
 
     // Wait (if necessary) and recurse (based on repeat time)
@@ -339,78 +367,75 @@ const runButton = async (app, domButton, button, signal, isRepeat) => {
     if (timeWait > 0) {
         await wait(timeWait);
     }
-    domButton?.classList.remove('is-sending');
-    if (signal && !signal.aborted) {
-        const riKey = 'repeatInitial';
-        const repeat = (!isRepeat ? lookup(app, button, riKey) : null)
-            ?? lookup(app, button, 'repeat')
-            ?? 1000;
+    button.dom.classList.remove('is-sending');
+    const signal = button.held?.signal;
+    const canRepeat = cause === 'HOLD' || cause === 'REPEAT';
+    if (canRepeat && signal && !signal.aborted) {
+        const waitTimeKey = cause === 'REPEAT' ? 'repeat' : 'repeatInitial';
+        const waitTime = lookup(app, config, waitTimeKey) ?? 1000;
         setTimeout(() => {
             if (!signal.aborted) {
-                runButton(app, domButton, button, signal, true);
+                runButton(app, button, 'REPEAT');
             }
-        }, repeat);
+        }, waitTime);
     }
 };
 
 /**
  * The callback handling when a dropdown button is changed.
  * @param {ClientApp} app the application orchestration global
- * @param {PanelButton|null} button the button that changed
+ * @param {ClientButton} button the button that changed
  * @param {EventLike} ev the event
  */
 const onChange = (app, button, ev) => {
     const domSelect = cast(ev.target, HTMLSelectElement);
-    const { commandName, command } = getCommand(app, button);
-    if (!domSelect || !button || (commandName && !command)) {
+    const config = button.config;
+    const { commandName, command } = getCommand(app, config);
+    if (!domSelect || (commandName && !command)) {
         return;
     }
 
-    const key = button.arguments?.[0]?.key ?? null;
+    const key = config.arguments?.[0]?.key ?? null;
     if (key) {
-        button.set = button.set ?? { };
-        button.set[key] = domSelect.value;
+        config.set = config.set ?? { };
+        config.set[key] = domSelect.value;
     }
 
     domSelect.value = '';
     domSelect.blur();
-    runButton(app, domSelect, button);
+    runButton(app, button);
 };
 
 /**
  * The callback handling when a button is pressed.
  * @param {ClientApp} app the application orchestration global
- * @param {PanelButton|null} button the button that was pressed
+ * @param {ClientButton} button the button that was pressed
  * @param {boolean} showInputs if true, show inputs if needed
  * @param {EventLike} ev the event
  */
 const onPress = (app, button, showInputs, ev) => {
     const domButton = cast(ev.target, HTMLButtonElement)?.closest('button');
-    const { commandName, command } = getCommand(app, button);
+    const { commandName, command } = getCommand(app, button.config);
     if (!button || !domButton || (commandName && !command)) {
         return;
     }
 
-    if (showInputs && lookup(app, button, 'arguments')) {
+    if (showInputs && lookup(app, button.config, 'arguments')) {
         app.showInput(button);
     } else {
-        const abort = new AbortController();
-        app.heldButtons.get(button)?.abort();
-        app.heldButtons.set(button, abort);
-        runButton(app, domButton, button, abort.signal);
+        button.held?.abort();
+        button.held = new AbortController();
+        runButton(app, button, 'HOLD');
     }
 };
 
 /**
  * The callback handling when a button is released.
- * @param {ClientApp} app the application orchestration global
- * @param {PanelButton|null} button the button that was released
+ * @param {ClientApp} _app the application orchestration global
+ * @param {ClientButton} button the button that was released
  */
-const onRelease = (app, button) => {
-    if (button) {
-        app.heldButtons.get(button)?.abort();
-        app.heldButtons.delete(button);
-    }
+const onRelease = (_app, button) => {
+    button.held?.abort();
 };
 
 /**
@@ -418,7 +443,7 @@ const onRelease = (app, button) => {
  * @param {ClientApp} app the application orechestration global
  */
 const releaseAll = (app) => {
-    for(const button of app.heldButtons.keys()) {
+    for(const button of app.buttons) {
         onRelease(app, button);
     }
 };
@@ -510,63 +535,76 @@ const renderProcess = app => {
 /**
  * Renders a single button (or dropdown).
  * @param {ClientApp} app the application orchestration global
- * @param {PanelButton} button the button we are rendering
- * @param {boolean} [isUpdate] true if this is an update to an existing button
- * @return {HTMLAnchorElement|HTMLButtonElement|HTMLSelectElement} the element
+ * @param {PanelButton} config the button we are rendering
+ * @param {ClientButton?} [existing] if given, only rerenders `existing`'s DOM
+ * @return {ClientButtonDom} the element
  */
-const renderButton = (app, button, isUpdate) => {
+const renderButton = (app, config, existing) => {
     const h = app.h;
-    const column = lookup(app, button, 'column');
-    const args = lookup(app, button, 'arguments') ?? [];
+    const column = lookup(app, config, 'column') ?? '';
+    const args = lookup(app, config, 'arguments') ?? [];
     const select = args.length === 1 && args[0].values ? args[0] : null;
-    const commandName = lookup(app, button, 'command');
-    const commandUrl = lookup(app, button, 'commandUrl');
-    const disabled = commandUrl ? 'disabled' : undefined;
-    const request = lookup(app, button, 'request')
+    const commandName = lookup(app, config, 'command');
+    const commandUrl = lookup(app, config, 'commandUrl');
+    const isDisabled = commandUrl && !existing?.hasLoadedCommands;
+    const disabled =  isDisabled ? 'disabled' : undefined;
+    const request = lookup(app, config, 'request')
     const navigation = request?.pageUrl ? request : null;
     const pageUrl = navigation?.pageUrl ?? null;
     const target = navigation?.isNew ? '_blank' : '_self';
+    const textOutput = lookup(app, config, 'textOutput');
 
-    button.set = button.set ?? { };
-    for(const { key, values } of button.arguments ?? []) {
-        button.set[key] = values ? (values[0] || '') : button.set[key];
+    config.set = config.set ?? { };
+    for(const { key, values } of config.arguments ?? []) {
+        config.set[key] = values ? (values[0] || '') : config.set[key];
     }
 
-    const domButton =
-        pageUrl ? h('a', [ { href: pageUrl, target }, button.text ]) :
-        select ?
-            renderSelect(app, button, select, '', button.text, {
-                disabled,
-                onChange: onChange.bind(null, app, button)
-            })
-        : h('button', [
-            {
-                disabled,
-                style: { gridColumn: column?.toString() ?? '' },
-                onPointerdown: onPress.bind(null, app, button, true),
-                onPointerup: onRelease.bind(null, app, button),
-                onPointercancel: onRelease.bind(null, app, button)
-            },
-            button.text
-        ]);
+    // Create DOM
+    const style = { gridColumn: `${column}` };
+    const text = config.text;
+    const dom = pageUrl
+        ? h('a', [ { href: pageUrl, target, style }, text ])
+        : select
+            ? renderSelect(app, select, '', text, { disabled, style })
+            : h('button', [{ disabled, style }, text]);
 
-    if (!isUpdate && commandUrl) {
+    /** @type {ClientButton} */
+    const button = existing ?? { config, dom, held: null };
+    existing?.dom.replaceWith(dom);
+    button.dom = dom;
+    app.buttons.add(button);
+
+    // Bind & Attach Event Handlers
+    if (dom instanceof HTMLSelectElement) {
+        const bound = onChange.bind(null, app, button);
+        setAttributes(app, dom, { onChange: bound });
+
+    } else if (dom instanceof HTMLButtonElement) {
+        const onPointerdown = onPress.bind(null, app, button, true);
+        const onPointerup = onRelease.bind(null, app, button);
+        const onPointercancel = onRelease.bind(null, app, button);
+        const events = { onPointerdown, onPointerup, onPointercancel };
+        setAttributes(app, dom, events);
+    }
+
+    // Load Commands
+    if (!existing && commandUrl) {
         app.commandMap.get(commandUrl)?.loader?.then(commands => {
+            button.hasLoadedCommands = true;
             const command = commands?.find(x => x.name === commandName);
             if (command) {
-                button.arguments = command.arguments;
-                const domNewButton = renderButton(app, button, true);
-                const isFormField = domNewButton instanceof HTMLButtonElement
-                    || domNewButton instanceof HTMLSelectElement;
-                domButton.replaceWith(domNewButton);
-                if (isFormField) {
-                    domNewButton.disabled = false;
-                }
+                config.arguments = command.arguments;
+                renderButton(app, config, button);
             }
         });
     }
 
-    return domButton;
+    // Update text on initialization if `output`
+    if (textOutput) {
+        runButton(app, button);
+    }
+
+    return button.dom;
 };
 
 /**
@@ -605,14 +643,13 @@ const renderPanel = (app, panel, level = 1) => {
 /**
  * Renders a select field given an argument with `values`.
  * @param {ClientApp} app the application orchestration global
- * @param {PanelButton} _button the button containing this argument
  * @param {ArgumentSchema} arg the argument to render
  * @param {string} value the current value this select has
  * @param {string} [title] an optional initial option, whose value is ''
  * @param {HtmlAttributeSet<'select', HTMLElement>} [attrs] optional attributes
  * @return {HTMLSelectElement} the select element representing argument
  */
-const renderSelect = (app, _button, arg, value, title, attrs) => {
+const renderSelect = (app, arg, value, title, attrs) => {
     const h = app.h;
     const values = arg.values ?? [];
     const titleSelected = value === '' ? 'selected' : undefined;
@@ -635,13 +672,17 @@ const renderSelect = (app, _button, arg, value, title, attrs) => {
 /**
  * Renders the contents of an overlay allowing users to set input args.
  * @param {ClientApp} app the application orchestration global
- * @param {PanelButton} button the button whose inputs we render
+ * @param {ClientButton} button the button whose inputs we render
  * @return {HTMLElement[]} the input content
  */
 const renderInput = (app, button) => {
     const h = app.h;
-    const inputs = (button.arguments ?? []).map(arg => {
-        const curValue = lookup(app, button, null, arg.key);
+    const config = button.config;
+    const inputs = (config.arguments ?? []).map(arg => {
+        const value = lookup(app, config, null, arg.key) ?? '';
+        const name = arg.key;
+        const onChange = updateInput.bind(null, app, button, arg.key);
+        const onInput = onChange;
         return h('li', [
             { className: 'input-input'},
             h('div', [
@@ -650,16 +691,8 @@ const renderInput = (app, button) => {
                 h('div', [{ className: 'input-info' }, arg.info]),
             ]),
             arg.values
-                ? renderSelect(app, button, arg, curValue ?? '', '', {
-                    onChange: updateInput.bind(null, app, button, arg.key)
-                })
-                : h('input', {
-                    type: 'text',
-                    name: arg.key,
-                    value: (curValue ?? ''),
-                    onChange: updateInput.bind(null, app, button, arg.key),
-                    onInput: updateInput.bind(null, app, button, arg.key)
-                })
+                ? renderSelect(app, arg, value, '', { onChange })
+                : h('input', { type: 'text', name, value, onChange, onInput })
         ]);
     });
 
@@ -748,7 +781,8 @@ const main = async () => {
     const domErrors = cast(select('#errors-list')[0], HTMLUListElement);
     const domOutput = cast(select('#output')[0], HTMLDialogElement);
     const domOutputCopy = cast(select('#output-copy')[0], HTMLButtonElement);
-    const domOutputContent = cast(select('#output-content')[0], HTMLElement);
+    const domOutputOut = cast(select('#output-out')[0], HTMLElement);
+    const domOutputError = cast(select('#output-error')[0], HTMLElement);
     const domBackdrop = cast(select('#dialog-backdrop')[0], HTMLElement);
     const domInput = cast(select('#input')[0], HTMLDialogElement);
     const domInputContent = cast(select('#input-visible')[0], HTMLElement);
@@ -761,7 +795,7 @@ const main = async () => {
         alert('Initial DOM root-elements not found!');
         return;
     }
-    if (!domOutput || !domOutputCopy || !domOutputContent) {
+    if (!domOutput || !domOutputCopy || !domOutputOut || !domOutputError) {
         alert('Initial DOM output-elements not found!');
         return;
     }
@@ -789,10 +823,10 @@ const main = async () => {
         pidUrl: null,
         pidUpdater: null,
         commandUrls: new Set(),
-        heldButtons: new Map(),
         commandMap: new Map(),
         tasks: new Map(),
         config: readStorage(),
+        buttons: new Set(),
         setGlobals: {
             GLOBAL_PROTOCOL: window.location.protocol,
             GLOBAL_HOST: window.location.host,
@@ -805,10 +839,11 @@ const main = async () => {
             domInput.close();
             window.open(getPidViewerUrl(commandUrl, pid), '_blank');
         },
-        showOutput: output => {
+        showOutput: (output) => {
             releaseAll(app);
-            app.output = output;
-            domOutputContent.innerText = output;
+            app.output = output.out ?? '';
+            domOutputOut.innerText = output.out ?? '';
+            domOutputError.innerText = output.error ?? '';
             domInput.close();
             domOutput.showModal();
         },
@@ -888,6 +923,7 @@ const main = async () => {
         releaseAll(app);
         clearDom(domInputContent);
         clearDom(domRoot);
+        app.buttons.clear();
 
         if (app.pidUrl) {
             domRoot.appendChild(renderProcess(app));

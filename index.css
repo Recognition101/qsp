@@ -363,6 +363,11 @@ body:has(dialog[open]) .dialog-backdrop {
     border-radius: 0 0 0.5rem 0.5rem;
 }
 
+.output-content .output-errors {
+    margin: 1rem 0 0 0;
+    color: var(--color-red);
+}
+
 
 /* ## Input Overlay */
 

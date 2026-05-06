@@ -351,6 +351,41 @@ Additionally, the button can set `isPersist` to `true` or `false` (default). If 
 
 For an example of using `command`, see the **Full CLI Command Example** section below.
 
+### Dynamic Button Text
+
+The text of a button itself can be the result of a request (or command). Setting the `textOutput` property to `true` will make the button's user-visible label update to whatever the response (or command) returns (or prints to standard output). The `textOutput` can also be set to describe a regular expression which can be used to replace parts of the output (useful for shortening long output to fit into a button).
+
+Additionally, using the `runOn` property set to an array of objects each containing a `command` property lets a button re-run (updating the `text` label) anytime any button with a particularly named command is run (clicked).
+
+In the following example, a QSP Command Server is assumed to provide the `date` and `ls` commands (which simply run the `date` and `ls` Unix commands, respectively). The example then demonstrates two buttons:
+
+1. A button that displays the time when the page is loaded and updates the time shown whenever the "LS" button is pressed.
+2. A button that displays the contents of the directory (and updates the first button when pressed).
+
+```json
+{
+    "root": {
+        "title": "Main Panel",
+        "buttons": [{
+            "text": "TIME",
+            "commandUrl": "${GLOBAL_PROTOCOL}//${GLOBAL_HOST}",
+            "command": "date",
+            "runOn": [{ "command": "ls" }],
+            "textOutput": {
+                "searchTerm": "^[^]*(\\d+:\\d+:\\d+)[^]*$",
+                "replacement": "$1",
+                "flags": "m"
+            }
+        }, {
+            "text": "LIST",
+            "commandUrl": "${GLOBAL_PROTOCOL}//${GLOBAL_HOST}",
+            "command": "ls",
+            "showOutput": true
+        }]
+    }
+}
+```
+
 ## QSP Server Reference Implementation
 
 The `qsp.js` file contains a reference implementation of the QSP Command and Proxy protocols, in addition to serving as a simple static file server.

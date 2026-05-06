@@ -126,7 +126,7 @@ export const h = (app, tag, options) => {
  * @param {import("../types").HtmlAttributeSet<T, HTMLElement>} attributes
  *  a map of attribute keys to their values to set on `el`
  */
-const setAttributes = (app, el, attributes) => {
+export const setAttributes = (app, el, attributes) => {
     for (const key in attributes) {
         const value = /** @type {any} */ (attributes)[key];
         const hasValue = value || value === "" || value === 0;

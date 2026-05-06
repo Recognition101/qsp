@@ -2,6 +2,8 @@
  * @typedef {import('../types').PanelConfig} PanelConfig
  * @typedef {import('../types').Panel} Panel
  * @typedef {import('../types').PanelButton} PanelButton
+ * @typedef {import('../types').PanelTextReplacer} PanelTextReplacer
+ * @typedef {import('../types').PanelEventCommand} PanelEventCommand
  * @typedef {import('../types').HttpCallRequest} HttpCallRequest
  * @typedef {import('../types').NavigationRequest} NavigationRequest
  * @typedef {import('../types').QspServerConfig} QspServerConfig
@@ -265,19 +267,34 @@ export const isPanelButton = isStrictKeyed(c => ({
     is: isMaybe(isString) (isIn(c, 'is')),
     set: isMaybe(isObjectMap(isString)) (isIn(c, 'set')),
     setList: isMaybe(isArrayOf(isString)) (isIn(c, 'setList')),
-    request: isOneOf(
-        isUndefined,
-        isHttpCallRequest,
-        isNavigationRequest
-    )(isIn(c, 'request')),
+    request: isOneOf(isUndefined, isHttpCallRequest, isNavigationRequest)(
+        isIn(c, 'request')
+    ),
     repeat: isMaybe(isNumber) (isIn(c, 'repeat')),
     repeatInitial: isMaybe(isNumber) (isIn(c, 'repeatInitial')),
     arguments: isMaybe(isArrayOf(isArgumentSchema)) (isIn(c, 'arguments')),
     showOutput: isMaybe(isBoolean) (isIn(c, 'showOutput')),
+    textOutput: isOneOf(isUndefined, isBoolean, isPanelTextReplacer) (
+        isIn(c, 'textOutput')
+    ),
+    runOn: isMaybe(isArrayOf(isPanelEventCommand)) (isIn(c, 'runOn')),
+
     proxyUrl: isMaybe(isString) (isIn(c, 'proxyUrl')),
     command: isMaybe(isString) (isIn(c, 'command')),
     commandUrl: isMaybe(isString) (isIn(c, 'commandUrl')),
     isPersisted: isMaybe(isBoolean)  (isIn(c, 'isPersisted'))
+}));
+
+/** @type {IsA<PanelTextReplacer>} */
+export const isPanelTextReplacer = isStrictKeyed(c => ({
+    searchTerm: isString (isIn(c, 'searchTerm')),
+    replacement: isString (isIn(c, 'replacement')),
+    flags: isMaybe(isString) (isIn(c, 'flags'))
+}));
+
+/** @type {IsA<PanelEventCommand>} */
+export const isPanelEventCommand = isStrictKeyed(c => ({
+    command: isString (isIn(c, 'command'))
 }));
 
 /** @type {IsA<Panel>} */
