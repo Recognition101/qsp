@@ -183,6 +183,7 @@ button[disabled],
     display: none;
 }
 
+.code-blocks,
 .code-block {
     padding: 0.5rem;
     font-size: 1rem;
@@ -192,6 +193,15 @@ button[disabled],
     white-space: pre;
     word-wrap: nowrap;
     overflow-x: scroll;
+}
+
+.code-blocks {
+    white-space: normal;
+}
+
+.code-blocks > .code-block {
+    padding: 0;
+    overflow-x: visible;
 }
 
 body.is-process .config {
