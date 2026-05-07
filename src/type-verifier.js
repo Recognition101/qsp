@@ -274,9 +274,12 @@ export const isPanelButton = isStrictKeyed(c => ({
     repeatInitial: isMaybe(isNumber) (isIn(c, 'repeatInitial')),
     arguments: isMaybe(isArrayOf(isArgumentSchema)) (isIn(c, 'arguments')),
     showOutput: isMaybe(isBoolean) (isIn(c, 'showOutput')),
-    textOutput: isOneOf(isUndefined, isBoolean, isPanelTextReplacer) (
-        isIn(c, 'textOutput')
-    ),
+    textOutput: isOneOf(
+        isUndefined,
+        isBoolean,
+        isPanelTextReplacer,
+        isArrayOf(isPanelTextReplacer)
+    ) (isIn(c, 'textOutput')),
     runOn: isMaybe(isArrayOf(isPanelEventCommand)) (isIn(c, 'runOn')),
 
     proxyUrl: isMaybe(isString) (isIn(c, 'proxyUrl')),

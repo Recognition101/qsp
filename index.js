@@ -347,9 +347,12 @@ const runButton = async (app, button, cause) => {
     if (textOutput === true) {
         button.dom.innerText = output.out ?? '';
     } else if (textOutput) {
-        const text = output.out ?? '';
-        const matcher = new RegExp(textOutput.searchTerm, textOutput.flags);
-        button.dom.innerText = text.replace(matcher, textOutput.replacement);
+        const steps = Array.isArray(textOutput) ? textOutput : [textOutput];
+        button.dom.innerText = steps.reduce(
+            (x, { searchTerm, replacement, flags }) =>
+                x.replace(new RegExp(searchTerm, flags), replacement),
+            output.out ?? ''
+        );
     }
 
     // Update other buttons `runOn`

@@ -58,11 +58,11 @@ export type PanelButton = {
     /** If set to `true`, the HTTP response will be presented to the user. */
     showOutput?: boolean;
     /**
-     * If set to `true` (or given a replacer), this button's `text` label
-     * will be set to the response text (whenever run). A `PanelTextReplacer`
+     * If set to `true` (or given replacers), this button's `text` label
+     * will be set to the response text (whenever run). `PanelTextReplacer`s
      * can be provided to replace text within the response before display.
      */
-    textOutput?: boolean | PanelTextReplacer;
+    textOutput?: boolean | PanelTextReplacer | PanelTextReplacer[];
     /** Re-run this button automatically whenever these given events occur. */
     runOn?: PanelEventCommand[];
 
